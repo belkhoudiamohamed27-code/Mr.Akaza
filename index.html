@@ -35,7 +35,6 @@
             overflow-x: hidden;
         }
 
-        /* Login Screen */
         #login-screen {
             display: flex;
             align-items: center;
@@ -80,7 +79,6 @@
             margin-bottom: 26px;
         }
 
-        /* Dashboard Layout */
         #dashboard-screen {
             display: none;
             min-height: 100vh;
@@ -90,10 +88,12 @@
             background: rgba(17, 24, 39, 0.85);
             backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border-color);
-            padding: 16px 32px;
+            padding: 16px 24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
             position: sticky;
             top: 0;
             z-index: 50;
@@ -104,7 +104,7 @@
             align-items: center;
             gap: 12px;
             font-weight: 800;
-            font-size: 20px;
+            font-size: 19px;
         }
 
         .brand-icon {
@@ -120,7 +120,7 @@
 
         .nav-tabs {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
         }
 
@@ -128,15 +128,15 @@
             background: transparent;
             color: var(--text-secondary);
             border: 1px solid transparent;
-            padding: 9px 18px;
+            padding: 8px 15px;
             border-radius: 10px;
             cursor: pointer;
             font-weight: 700;
-            font-size: 14px;
+            font-size: 13px;
             transition: all 0.2s;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .tab-btn:hover {
@@ -151,24 +151,23 @@
         }
 
         .container {
-            max-width: 1320px;
+            max-width: 1360px;
             margin: 0 auto;
-            padding: 28px 24px;
+            padding: 28px 20px;
         }
 
-        /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 18px;
-            margin-bottom: 28px;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 16px;
+            margin-bottom: 26px;
         }
 
         .stat-card {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 14px;
-            padding: 20px;
+            padding: 18px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -182,13 +181,13 @@
         }
 
         .stat-info h3 {
-            font-size: 26px;
+            font-size: 25px;
             font-weight: 800;
         }
 
         .stat-icon {
-            width: 48px;
-            height: 48px;
+            width: 46px;
+            height: 46px;
             border-radius: 12px;
             background: rgba(99, 102, 241, 0.12);
             color: var(--accent);
@@ -198,7 +197,6 @@
             font-size: 22px;
         }
 
-        /* Sections */
         .section-panel {
             display: none;
         }
@@ -225,13 +223,12 @@
         }
 
         .card-header h2 {
-            font-size: 19px;
+            font-size: 18px;
             display: flex;
             align-items: center;
             gap: 10px;
         }
 
-        /* Forms & Inputs */
         .form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -255,7 +252,7 @@
             background: var(--bg-input);
             border: 1px solid var(--border-color);
             color: var(--text-primary);
-            padding: 11px 14px;
+            padding: 10px 14px;
             border-radius: 10px;
             font-size: 14px;
             outline: none;
@@ -267,7 +264,6 @@
             border-color: var(--accent);
         }
 
-        /* Buttons */
         .btn {
             background: var(--accent);
             color: #fff;
@@ -275,25 +271,21 @@
             padding: 10px 18px;
             border-radius: 10px;
             font-weight: 700;
-            font-size: 14px;
+            font-size: 13px;
             cursor: pointer;
             transition: all 0.2s;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .btn:hover {
             background: var(--accent-hover);
         }
 
-        .btn-success {
-            background: var(--success);
-        }
-        .btn-success:hover {
-            background: #059669;
-        }
+        .btn-success { background: var(--success); }
+        .btn-success:hover { background: #059669; }
 
         .btn-danger {
             background: rgba(239, 68, 68, 0.15);
@@ -321,7 +313,6 @@
             border-radius: 8px;
         }
 
-        /* Tables */
         .table-responsive {
             overflow-x: auto;
         }
@@ -333,15 +324,16 @@
         }
 
         th, td {
-            padding: 14px 16px;
+            padding: 14px 14px;
             border-bottom: 1px solid var(--border-color);
-            font-size: 14px;
+            font-size: 13px;
+            vertical-align: middle;
         }
 
         th {
             color: var(--text-secondary);
             font-weight: 700;
-            font-size: 13px;
+            font-size: 12px;
             background: rgba(15, 23, 42, 0.5);
         }
 
@@ -352,41 +344,26 @@
         .badge {
             padding: 4px 10px;
             border-radius: 999px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             display: inline-flex;
             align-items: center;
-            gap: 5px;
+            gap: 4px;
         }
 
-        .badge-success {
-            background: rgba(16, 185, 129, 0.15);
-            color: #34d399;
-        }
+        .badge-success { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+        .badge-warning { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+        .badge-danger  { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+        .badge-info    { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; }
 
-        .badge-warning {
-            background: rgba(245, 158, 11, 0.15);
-            color: #fbbf24;
-        }
-
-        .badge-danger {
-            background: rgba(239, 68, 68, 0.15);
-            color: #f87171;
-        }
-
-        /* Toggle Switch */
         .switch {
             position: relative;
             display: inline-block;
-            width: 48px;
-            height: 26px;
+            width: 46px;
+            height: 24px;
         }
 
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
+        .switch input { opacity: 0; width: 0; height: 0; }
 
         .slider {
             position: absolute;
@@ -400,8 +377,8 @@
         .slider:before {
             position: absolute;
             content: "";
-            height: 20px;
-            width: 20px;
+            height: 18px;
+            width: 18px;
             left: 3px;
             bottom: 3px;
             background-color: white;
@@ -409,21 +386,15 @@
             border-radius: 50%;
         }
 
-        input:checked + .slider {
-            background-color: #10b981;
-        }
+        input:checked + .slider { background-color: #10b981; }
+        input:checked + .slider:before { transform: translateX(22px); }
 
-        input:checked + .slider:before {
-            transform: translateX(22px);
-        }
-
-        /* Products Cards */
         .product-item {
             background: #0f172a;
             border: 1px solid var(--border-color);
             border-radius: 14px;
-            padding: 20px;
-            margin-bottom: 18px;
+            padding: 18px;
+            margin-bottom: 16px;
         }
 
         .product-top {
@@ -431,21 +402,21 @@
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 16px;
-            padding-bottom: 16px;
+            gap: 14px;
+            padding-bottom: 14px;
             border-bottom: 1px solid var(--border-color);
-            margin-bottom: 16px;
+            margin-bottom: 14px;
         }
 
         .product-meta {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 14px;
         }
 
         .product-thumb {
-            width: 64px;
-            height: 64px;
+            width: 56px;
+            height: 56px;
             border-radius: 12px;
             object-fit: cover;
             background: var(--bg-card);
@@ -453,14 +424,14 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 26px;
+            font-size: 24px;
         }
 
         .offer-row {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 10px;
-            padding: 12px 16px;
+            padding: 12px 14px;
             margin-bottom: 10px;
             display: flex;
             align-items: center;
@@ -469,7 +440,17 @@
             gap: 12px;
         }
 
-        /* Toast Notification */
+        .proof-thumb {
+            width: 58px;
+            height: 58px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid var(--accent);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .proof-thumb:hover { transform: scale(1.08); }
+
         #toast {
             position: fixed;
             bottom: 24px;
@@ -485,7 +466,6 @@
             z-index: 1000;
         }
 
-        /* Modal */
         .modal-backdrop {
             position: fixed;
             inset: 0;
@@ -522,7 +502,7 @@
     <div class="login-card">
         <div class="login-logo">⚡</div>
         <h1>Moh Service Admin</h1>
-        <p>لوحة التحكم المتكاملة لإدارة البوت والمنتجات والطلبات</p>
+        <p>لوحة التحكم المتكاملة لإدارة البوت والمنتجات والمدفوعات</p>
         <form onsubmit="handleLogin(event)">
             <div class="form-group" style="margin-bottom: 18px; text-align: right;">
                 <label>كلمة مرور الإدارة</label>
@@ -542,14 +522,16 @@
         </div>
         <div class="nav-tabs">
             <button class="tab-btn active" onclick="switchTab('products', this)">🛒 المنتجات والعروض</button>
-            <button class="tab-btn" onclick="switchTab('orders', this)">📦 الطلبات <span id="nav-pending-badge" class="badge badge-warning" style="display:none;">0</span></button>
+            <button class="tab-btn" onclick="switchTab('payments', this)">💳 خيارات الدفع</button>
+            <button class="tab-btn" onclick="switchTab('topups', this)">💵 طلبات الشحن <span id="nav-topups-badge" class="badge badge-warning" style="display:none;">0</span></button>
+            <button class="tab-btn" onclick="switchTab('orders', this)">📦 طلبات الشراء <span id="nav-pending-badge" class="badge badge-warning" style="display:none;">0</span></button>
             <button class="tab-btn" onclick="switchTab('users', this)">👥 المستخدمين والأرصدة</button>
         </div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <a href="/api/backup/download" class="btn btn-outline btn-sm" style="text-decoration:none;">📥 حفظ نسخة DB</a>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <a href="/api/backup/download" class="btn btn-outline btn-sm" style="text-decoration:none;">📥 حفظ DB</a>
             <input type="file" id="restore-db-file" accept=".db" style="display:none;" onchange="handleRestoreDb(this)">
             <button class="btn btn-outline btn-sm" onclick="document.getElementById('restore-db-file').click()">📤 استعادة DB</button>
-            <button class="btn btn-outline btn-sm" onclick="loadDashboard()">🔄 تحديث البيانات</button>
+            <button class="btn btn-outline btn-sm" onclick="loadDashboard()">🔄 تحديث</button>
             <button class="btn btn-danger btn-sm" onclick="handleLogout()">خروج</button>
         </div>
     </nav>
@@ -566,21 +548,21 @@
             </div>
             <div class="stat-card">
                 <div class="stat-info">
-                    <span>طلبات بانتظار التسليم (PENDING)</span>
+                    <span>طلبات شحن بانتظار التأكيد</span>
+                    <h3 id="stat-topups-pending" style="color: var(--warning);">0</h3>
+                </div>
+                <div class="stat-icon" style="color: var(--warning); background: rgba(245, 158, 11, 0.12);">💵</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-info">
+                    <span>طلبات شراء بانتظار التسليم</span>
                     <h3 id="stat-pending" style="color: var(--warning);">0</h3>
                 </div>
                 <div class="stat-icon" style="color: var(--warning); background: rgba(245, 158, 11, 0.12);">⏳</div>
             </div>
             <div class="stat-card">
                 <div class="stat-info">
-                    <span>إجمالي الطلبات</span>
-                    <h3 id="stat-orders">0</h3>
-                </div>
-                <div class="stat-icon">📦</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-info">
-                    <span>إجمالي المبيعات</span>
+                    <span>إجمالي المبيعات المكتملة</span>
                     <h3 id="stat-sales" style="color: var(--success);">$0</h3>
                 </div>
                 <div class="stat-icon" style="color: var(--success); background: rgba(16, 185, 129, 0.12);">💰</div>
@@ -589,7 +571,6 @@
 
         <!-- ==================== 1. PRODUCTS & OFFERS SECTION ==================== -->
         <div id="panel-products" class="section-panel active">
-            <!-- Add New Product Card -->
             <div class="card">
                 <div class="card-header">
                     <h2>➕ إضافة منتج جديد للبوت</h2>
@@ -617,7 +598,6 @@
                 </form>
             </div>
 
-            <!-- Products & Offers List -->
             <div class="card">
                 <div class="card-header">
                     <h2>🗂 قائمة المنتجات والعروض التابعة لها</h2>
@@ -626,11 +606,90 @@
             </div>
         </div>
 
-        <!-- ==================== 2. ORDERS SECTION ==================== -->
+        <!-- ==================== 2. PAYMENT METHODS SECTION ==================== -->
+        <div id="panel-payments" class="section-panel">
+            <div class="card">
+                <div class="card-header">
+                    <h2>💳 إضافة وسيلة دفع جديدة (بالدينار الجزائري DZD أو الدولار USD)</h2>
+                </div>
+                <form id="add-pm-form" onsubmit="handleCreatePaymentMethod(event)">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>اسم وسيلة الدفع (مثال: BaridiMob / CCP / USDT / Payeer)</label>
+                            <input type="text" id="pm-name" placeholder="أدخل اسم وسيلة الدفع" required>
+                        </div>
+                        <div class="form-group">
+                            <label>العملة المخصصة لهذه الوسيلة</label>
+                            <select id="pm-currency" required>
+                                <option value="DZD">🇩🇿 الدينار الجزائري (DZD - سعر الصرف: 1$ = 260 د.ج)</option>
+                                <option value="USD">💵 الدولار الأمريكي (USD)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>أيقونة وسيلة الدفع (اختياري - تظهر بجانب الزر)</label>
+                            <input type="file" id="pm-image" accept="image/*">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label>الإجراءات ومعلومات الحساب التي تظهر للعميل عند اختيار هذه الوسيلة:</label>
+                        <textarea id="pm-instructions" rows="4" required placeholder="مثال: قم بإرسال المبلغ إلى حساب RIP التالي: 00799999000000000000 ثم أرسل صورة فاتورة الدفع (الوصل) هنا في المحادثة ليتم التحقق وشحن حسابك."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success">➕ إضافة وسيلة الدفع</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>🏦 وسائل الدفع المضافة حالياً</h2>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>الأيقونة</th>
+                                <th>اسم الوسيلة</th>
+                                <th>العملة</th>
+                                <th>الإجراءات والتعليمات المعروضة للعميل</th>
+                                <th>إدارة</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pm-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 3. TOPUP REQUESTS SECTION ==================== -->
+        <div id="panel-topups" class="section-panel">
+            <div class="card">
+                <div class="card-header">
+                    <h2>💵 طلبات شحن المحفظة (التحقق من الفواتير والوصولات)</h2>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>رقم العملية</th>
+                                <th>العميل</th>
+                                <th>وسيلة الدفع</th>
+                                <th>المبلغ المدفوع</th>
+                                <th>يُشحن بالمحفظة ($)</th>
+                                <th>الفاتورة / الوصل / الرقم المرسل</th>
+                                <th>الحالة</th>
+                                <th>الإجراء (تأكيد الشحن أو رفض مع السبب)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="topups-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 4. ORDERS SECTION ==================== -->
         <div id="panel-orders" class="section-panel">
             <div class="card">
                 <div class="card-header">
-                    <h2>📦 سجل الطلبات والتسليم اليدوي للطلبات المعلقة (PENDING)</h2>
+                    <h2>📦 طلبات الشراء (عبر المحفظة أو الدفع المباشر)</h2>
                 </div>
                 <div class="table-responsive">
                     <table>
@@ -638,11 +697,11 @@
                             <tr>
                                 <th>رقم الطلب</th>
                                 <th>العميل</th>
-                                <th>المنتج / العرض</th>
-                                <th>السعر</th>
+                                <th>العرض المطلوب</th>
+                                <th>طريقة الدفع والمبلغ</th>
+                                <th>إيصال الدفع المباشر</th>
                                 <th>الحالة</th>
-                                <th>بيانات الحساب / التسليم اليدوي للتلغرام</th>
-                                <th>التاريخ</th>
+                                <th>تسليم الحساب للموافقة / أو رفض الطلب مع السبب</th>
                             </tr>
                         </thead>
                         <tbody id="orders-tbody"></tbody>
@@ -651,7 +710,7 @@
             </div>
         </div>
 
-        <!-- ==================== 3. USERS (ACCOUNTS) SECTION ==================== -->
+        <!-- ==================== 5. USERS (ACCOUNTS) SECTION ==================== -->
         <div id="panel-users" class="section-panel">
             <div class="card">
                 <div class="card-header">
@@ -689,7 +748,7 @@
             </div>
             <div class="form-grid">
                 <div class="form-group">
-                    <label>السعر ($)</label>
+                    <label>السعر بالدولار ($) - سيُحسب بالدينار تلقائياً (×260)</label>
                     <input type="number" step="0.01" min="0" id="offer-price" required placeholder="5.00">
                 </div>
                 <div class="form-group">
@@ -745,7 +804,7 @@
                 <input type="text" id="edit-offer-name" required>
             </div>
             <div class="form-group" style="margin-bottom: 12px;">
-                <label>السعر الجديد ($)</label>
+                <label>السعر الجديد بالدولار ($)</label>
                 <input type="number" step="0.01" min="0" id="edit-offer-price" required>
             </div>
             <div class="form-group" style="margin-bottom: 18px;">
@@ -789,11 +848,14 @@
 <div id="toast"></div>
 
 <script>
+    let currentProductsList = [];
+    let currentPaymentMethods = [];
+
     function showToast(msg) {
         const t = document.getElementById('toast');
         t.textContent = msg;
         t.style.display = 'block';
-        setTimeout(() => { t.style.display = 'none'; }, 3500);
+        setTimeout(() => { t.style.display = 'none'; }, 3800);
     }
 
     function categoryTitle(cat) {
@@ -873,10 +935,9 @@
         }
         const data = await res.json();
 
-        // Update stats
         document.getElementById('stat-users').textContent = data.stats.usersCount;
         document.getElementById('stat-pending').textContent = data.stats.pendingCount;
-        document.getElementById('stat-orders').textContent = data.stats.ordersCount;
+        document.getElementById('stat-topups-pending').textContent = data.stats.pendingTopupsCount;
         document.getElementById('stat-sales').textContent = '$' + Number(data.stats.totalSales).toFixed(2);
 
         const pendingBadge = document.getElementById('nav-pending-badge');
@@ -887,14 +948,22 @@
             pendingBadge.style.display = 'none';
         }
 
+        const topupsBadge = document.getElementById('nav-topups-badge');
+        if (data.stats.pendingTopupsCount > 0) {
+            topupsBadge.style.display = 'inline-flex';
+            topupsBadge.textContent = data.stats.pendingTopupsCount;
+        } else {
+            topupsBadge.style.display = 'none';
+        }
+
         renderProducts(data.products);
+        renderPaymentMethods(data.paymentMethods);
+        renderTopups(data.topups);
         renderOrders(data.orders);
         renderUsers(data.users);
     }
 
-    // ==================== RENDER PRODUCTS & OFFERS ====================
-    let currentProductsList = [];
-
+    // ==================== 1. RENDER PRODUCTS & OFFERS ====================
     function renderProducts(products) {
         currentProductsList = products || [];
         const container = document.getElementById('products-container');
@@ -916,10 +985,11 @@
                 ? p.offers.map(o => `
                     <div class="offer-row">
                         <div style="flex:1; min-width: 240px;">
-                            <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+                            <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px; flex-wrap:wrap;">
                                 <span id="status-dot-${o.id}">${o.isAvailable ? '🟢' : '🔴'}</span>
                                 <strong style="font-size:15px;">${escapeHtml(o.name)}</strong>
-                                <span class="badge badge-success">$${Number(o.price).toFixed(2)}</span>
+                                <span class="badge badge-success">$${Number(o.price).toFixed(2)} USD</span>
+                                <span class="badge badge-info">${Math.round(Number(o.price) * 260)} DZD</span>
                                 <span class="badge" style="background:rgba(99,102,241,0.15); color:#a5b4fc;">المخزون الآلي: ${o.availableStock}</span>
                             </div>
                             <p style="font-size:12px; color:var(--text-secondary);">${escapeHtml(o.description || 'بدون وصف إضافي')}</p>
@@ -947,23 +1017,21 @@
                             ${thumbHtml}
                             <div>
                                 <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
-                                    <span class="badge" style="background:rgba(99,102,241,0.15); color:#a5b4fc;">${categoryTitle(p.category)}</span>
+                                    <span class="badge badge-info">${categoryTitle(p.category)}</span>
                                     ${emojiBadge}
                                 </div>
                                 <h3 style="font-size:18px;">${escapeHtml(p.name)} <small style="color:var(--text-secondary); font-weight:400;">(#${p.id})</small></h3>
                             </div>
                         </div>
-                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                             <input type="file" id="logo-upload-${p.id}" accept="image/*" style="display:none;" onchange="uploadProductLogo(${p.id}, this)">
                             <button class="btn btn-outline btn-sm" onclick="openEditProductModal(${p.id})">✏️ تعديل المنتج</button>
-                            <button class="btn btn-outline btn-sm" onclick="document.getElementById('logo-upload-${p.id}').click()">🖼 رفع/تغيير شعار الزر</button>
-                            <button class="btn btn-success btn-sm" onclick="openOfferModal(${p.id}, '${escapeJs(p.name)}')">➕ إضافة عرض لهذا المنتج</button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">🗑 حذف المنتج</button>
+                            <button class="btn btn-outline btn-sm" onclick="document.getElementById('logo-upload-${p.id}').click()">🖼 رفع شعار الزر</button>
+                            <button class="btn btn-success btn-sm" onclick="openOfferModal(${p.id}, '${escapeJs(p.name)}')">➕ إضافة عرض</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">🗑 حذف</button>
                         </div>
                     </div>
-                    <div>
-                        ${offersHtml}
-                    </div>
+                    <div>${offersHtml}</div>
                 </div>
             `;
         }).join('');
@@ -977,19 +1045,13 @@
         const fileInput = document.getElementById('prod-image');
         if (fileInput.files.length > 0) {
             formData.append('image', fileInput.files[0]);
-            showToast('⏳ جارٍ رفع الشعار وتحويله إلى أيقونة زر في تلغرام...');
+            showToast('⏳ جارٍ رفع الشعار وتحويله إلى أيقونة زر...');
         }
-
-        const res = await fetch('/api/products', {
-            method: 'POST',
-            body: formData
-        });
+        const res = await fetch('/api/products', { method: 'POST', body: formData });
         const data = await res.json();
         if (data.success) {
             document.getElementById('add-product-form').reset();
-            showToast(data.customEmojiId
-                ? '✅ تم إضافة المنتج وتحويل الشعار إلى أيقونة زر تلغرام بنجاح!'
-                : '✅ تم إضافة المنتج بنجاح!');
+            showToast('✅ تم إضافة المنتج بنجاح!');
             loadDashboard();
         } else {
             showToast('❌ ' + (data.message || 'فشل إضافة المنتج'));
@@ -1001,20 +1063,12 @@
         const formData = new FormData();
         formData.append('productId', productId);
         formData.append('image', inputElem.files[0]);
-        showToast('⏳ جارٍ تحويل الصورة إلى أيقونة زر في تلغرام...');
-
-        const res = await fetch('/api/products/logo', {
-            method: 'POST',
-            body: formData
-        });
+        showToast('⏳ جارٍ تحويل الصورة إلى أيقونة زر...');
+        const res = await fetch('/api/products/logo', { method: 'POST', body: formData });
         const data = await res.json();
         if (data.success) {
-            showToast(data.customEmojiId
-                ? '✅ تم تحويل الصورة وتعيينها كأيقونة داخل زر التلغرام!'
-                : '⚠️ تم حفظ الصورة ولكن تعذر إنشاء إيموجي تلغرام (تأكد من مراسلة الأدمن للبوت أولاً).');
+            showToast('✅ تم تحديث شعار المنتج بنجاح!');
             loadDashboard();
-        } else {
-            showToast('❌ ' + (data.message || 'حدث خطأ أثناء رفع الشعار'));
         }
     }
 
@@ -1036,9 +1090,7 @@
         document.getElementById('offer-modal').style.display = 'flex';
     }
 
-    function closeOfferModal() {
-        document.getElementById('offer-modal').style.display = 'none';
-    }
+    function closeOfferModal() { document.getElementById('offer-modal').style.display = 'none'; }
 
     async function submitAddOffer(e) {
         e.preventDefault();
@@ -1060,8 +1112,6 @@
             closeOfferModal();
             showToast('✅ تم إضافة العرض بنجاح!');
             loadDashboard();
-        } else {
-            showToast('❌ ' + (data.message || 'حدث خطأ'));
         }
     }
 
@@ -1076,9 +1126,9 @@
             const dot = document.getElementById('status-dot-' + offerId);
             if (dot) dot.textContent = isAvailable ? '🟢' : '🔴';
             if (isAvailable && data.notifiedUsers > 0) {
-                showToast(`🔔 تم تفعيل العرض وإرسال إشعار تلقائي إلى ${data.notifiedUsers} عميل في التلغرام!`);
+                showToast(`🔔 تم تفعيل العرض وإشعار ${data.notifiedUsers} عميل منتظر!`);
             } else {
-                showToast(isAvailable ? '🟢 تم تفعيل توفر العرض في البوت' : '🔴 تم إيقاف توفر العرض في البوت');
+                showToast(isAvailable ? '🟢 تم تفعيل توفر العرض' : '🔴 تم إيقاف توفر العرض');
             }
         }
     }
@@ -1090,9 +1140,7 @@
         document.getElementById('stock-modal').style.display = 'flex';
     }
 
-    function closeStockModal() {
-        document.getElementById('stock-modal').style.display = 'none';
-    }
+    function closeStockModal() { document.getElementById('stock-modal').style.display = 'none'; }
 
     async function submitAddStock(e) {
         e.preventDefault();
@@ -1123,7 +1171,6 @@
         if (!prod || !prod.offers) return;
         const offer = prod.offers.find(o => o.id === offerId);
         if (!offer) return;
-
         document.getElementById('edit-offer-id').value = offer.id;
         document.getElementById('edit-offer-name').value = offer.name || '';
         document.getElementById('edit-offer-price').value = offer.price;
@@ -1131,9 +1178,7 @@
         document.getElementById('edit-offer-modal').style.display = 'flex';
     }
 
-    function closeEditOfferModal() {
-        document.getElementById('edit-offer-modal').style.display = 'none';
-    }
+    function closeEditOfferModal() { document.getElementById('edit-offer-modal').style.display = 'none'; }
 
     async function submitEditOffer(e) {
         e.preventDefault();
@@ -1153,8 +1198,6 @@
             closeEditOfferModal();
             showToast('✅ تم حفظ تعديلات العرض وتحديثها في البوت فوراً!');
             loadDashboard();
-        } else {
-            showToast('❌ ' + (data.message || 'فشل تعديل العرض'));
         }
     }
 
@@ -1167,9 +1210,7 @@
         document.getElementById('edit-product-modal').style.display = 'flex';
     }
 
-    function closeEditProductModal() {
-        document.getElementById('edit-product-modal').style.display = 'none';
-    }
+    function closeEditProductModal() { document.getElementById('edit-product-modal').style.display = 'none'; }
 
     async function submitEditProduct(e) {
         e.preventDefault();
@@ -1186,14 +1227,152 @@
         const data = await res.json();
         if (data.success) {
             closeEditProductModal();
-            showToast('✅ تم تعديل بيانات المنتج وتحديثها في البوت!');
+            showToast('✅ تم تعديل بيانات المنتج!');
             loadDashboard();
-        } else {
-            showToast('❌ ' + (data.message || 'فشل تعديل المنتج'));
         }
     }
 
-    // ==================== RENDER ORDERS ====================
+    // ==================== 2. RENDER PAYMENT METHODS ====================
+    function renderPaymentMethods(methods) {
+        currentPaymentMethods = methods || [];
+        const tbody = document.getElementById('pm-tbody');
+        if (!methods || methods.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-secondary); padding:24px;">لم تقم بإضافة أي وسيلة دفع بعد. أضف وسائل الدفع (مثل BaridiMob للدينار أو USDT للدولار) من النموذج أعلاه!</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = methods.map(pm => {
+            const thumb = pm.iconPath
+                ? `<img src="/${pm.iconPath}" class="product-thumb" style="width:42px; height:42px;">`
+                : `<div class="product-thumb" style="width:42px; height:42px; font-size:18px;">💳</div>`;
+            const currBadge = pm.currency === 'DZD'
+                ? `<span class="badge badge-warning">🇩🇿 DZD (دينار جزائري)</span>`
+                : `<span class="badge badge-success">💵 USD (دولار)</span>`;
+
+            return `
+                <tr>
+                    <td>${thumb}</td>
+                    <td><strong>${escapeHtml(pm.name)}</strong></td>
+                    <td>${currBadge}</td>
+                    <td style="max-width:440px; white-space:pre-wrap; font-size:12px; color:var(--text-secondary);">${escapeHtml(pm.instructions)}</td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" onclick="deletePaymentMethod(${pm.id})">🗑 حذف</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    async function handleCreatePaymentMethod(e) {
+        e.preventDefault();
+        const formData = new FormData();
+        formData.append('name', document.getElementById('pm-name').value);
+        formData.append('currency', document.getElementById('pm-currency').value);
+        formData.append('instructions', document.getElementById('pm-instructions').value);
+        const fileInput = document.getElementById('pm-image');
+        if (fileInput.files.length > 0) {
+            formData.append('image', fileInput.files[0]);
+        }
+        const res = await fetch('/api/payment-methods', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('add-pm-form').reset();
+            showToast('✅ تم إضافة وسيلة الدفع بنجاح!');
+            loadDashboard();
+        } else {
+            showToast('❌ ' + (data.message || 'فشل إضافة وسيلة الدفع'));
+        }
+    }
+
+    async function deletePaymentMethod(id) {
+        if (!confirm('هل تريد حذف وسيلة الدفع هذه؟')) return;
+        await fetch('/api/payment-methods/' + id, { method: 'DELETE' });
+        showToast('🗑 تم حذف وسيلة الدفع');
+        loadDashboard();
+    }
+
+    // ==================== 3. RENDER TOPUP REQUESTS ====================
+    function renderTopups(topups) {
+        const tbody = document.getElementById('topups-tbody');
+        if (!topups || topups.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-secondary); padding:24px;">لا توجد طلبات شحن محفظة حالياً</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = topups.map(t => {
+            const isPending = t.status === 'PENDING_ADMIN';
+            const statusBadge = t.status === 'PENDING_ADMIN'
+                ? `<span class="badge badge-warning">⏳ بانتظار التحقق</span>`
+                : (t.status === 'APPROVED'
+                    ? `<span class="badge badge-success">✅ تم الشحن</span>`
+                    : `<span class="badge badge-danger">❌ مرفوض</span>`);
+
+            let proofHtml = '';
+            if (t.proofImage) {
+                proofHtml += `<a href="/${t.proofImage}" target="_blank"><img src="/${t.proofImage}" class="proof-thumb" title="اضغط لعرض الفاتورة بحجم كامل"></a> `;
+            }
+            if (t.proofText) {
+                proofHtml += `<div style="font-size:12px; margin-top:4px;"><code>${escapeHtml(t.proofText)}</code></div>`;
+            }
+            if (!proofHtml) proofHtml = '<span style="color:var(--text-secondary);">بدون مرفق</span>';
+
+            const actionsHtml = isPending
+                ? `<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; min-width:260px;">
+                       <button class="btn btn-success btn-sm" onclick="approveTopup(${t.id})">✅ تأكيد وشحن ($${Number(t.amountUsd).toFixed(2)})</button>
+                       <input type="text" id="reject-topup-reason-${t.id}" placeholder="سبب الرفض..." style="width:140px; padding:6px 10px; font-size:12px;">
+                       <button class="btn btn-danger btn-sm" onclick="rejectTopup(${t.id})">❌ رفض</button>
+                   </div>`
+                : (t.status === 'REJECTED' ? `<small style="color:#f87171;">السبب: ${escapeHtml(t.rejectionReason)}</small>` : `<code>تمت المعالجة</code>`);
+
+            return `
+                <tr>
+                    <td><code>#${t.id}</code></td>
+                    <td><strong>${escapeHtml(t.userName)}</strong><br><code>${t.userId}</code></td>
+                    <td><span class="badge badge-info">💳 ${escapeHtml(t.paymentMethodName)}</span></td>
+                    <td><strong>${Number(t.amountPaid).toFixed(2)} ${escapeHtml(t.currency)}</strong></td>
+                    <td><strong style="color:var(--success);">$${Number(t.amountUsd).toFixed(2)} USD</strong></td>
+                    <td>${proofHtml}</td>
+                    <td>${statusBadge}</td>
+                    <td>${actionsHtml}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    async function approveTopup(topupId) {
+        if (!confirm('هل تريد تأكيد استلام المبلغ وشحن رصيد العميل تلقائياً؟')) return;
+        const res = await fetch('/api/topups/approve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topupId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('✅ تم شحن رصيد العميل وإرسال إشعار التأكيد له في التلغرام!');
+            loadDashboard();
+        }
+    }
+
+    async function rejectTopup(topupId) {
+        const reasonInput = document.getElementById('reject-topup-reason-' + topupId);
+        const reason = reasonInput ? reasonInput.value.trim() : '';
+        if (!reason) {
+            showToast('⚠️ يرجى كتابة سبب الرفض في الخانة المخصصة أولاً');
+            return;
+        }
+        const res = await fetch('/api/topups/reject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topupId, reason })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('❌ تم رفض طلب الشحن وإبلاغ العميل بالسبب في التلغرام');
+            loadDashboard();
+        }
+    }
+
+    // ==================== 4. RENDER ORDERS ====================
     function renderOrders(orders) {
         const tbody = document.getElementById('orders-tbody');
         if (!orders || orders.length === 0) {
@@ -1203,29 +1382,55 @@
 
         tbody.innerHTML = orders.map(o => {
             const isPending = o.status === 'PENDING';
-            const badge = isPending
+            const badge = o.status === 'PENDING'
                 ? `<span class="badge badge-warning">⏳ PENDING (معلق)</span>`
-                : `<span class="badge badge-success">✅ COMPLETED (مكتمل)</span>`;
+                : (o.status === 'COMPLETED'
+                    ? `<span class="badge badge-success">✅ COMPLETED (مكتمل)</span>`
+                    : `<span class="badge badge-danger">❌ REJECTED (مرفوض)</span>`);
+
+            const paymentInfo = o.paymentType === 'WALLET'
+                ? `<span class="badge badge-info">💰 من رصيد المحفظة</span><br><strong style="color:var(--success);">$${Number(o.price).toFixed(2)} USD</strong>`
+                : `<span class="badge badge-warning">💳 دفع مباشر (${escapeHtml(o.paymentMethodName)})</span><br><strong>${Number(o.amountToPay).toFixed(2)} ${escapeHtml(o.currency)}</strong> <small style="color:var(--text-secondary);">($${Number(o.price).toFixed(2)})</small>`;
+
+            let proofHtml = '-';
+            if (o.paymentType === 'DIRECT') {
+                proofHtml = '';
+                if (o.proofImage) {
+                    proofHtml += `<a href="/${o.proofImage}" target="_blank"><img src="/${o.proofImage}" class="proof-thumb" title="اضغط لعرض الفاتورة بحجم كامل"></a> `;
+                }
+                if (o.proofText) {
+                    proofHtml += `<div style="font-size:12px; margin-top:4px;"><code>${escapeHtml(o.proofText)}</code></div>`;
+                }
+                if (!proofHtml) proofHtml = '<span style="color:var(--text-secondary);">بدون مرفق</span>';
+            }
 
             const deliveryCell = isPending
-                ? `<div style="display:flex; gap:8px; min-width:280px;">
-                       <input type="text" id="deliver-input-${o.id}" placeholder="أدخل الإيميل:الباسورد أو الكود للتسليم...">
-                       <button class="btn btn-success btn-sm" onclick="deliverOrder(${o.id})">📨 تسليم للعميل</button>
+                ? `<div style="display:flex; flex-direction:column; gap:8px; min-width:300px;">
+                       <div style="display:flex; gap:6px;">
+                           <input type="text" id="deliver-input-${o.id}" placeholder="أدخل الإيميل:الباسورد أو الكود للتسليم..." style="padding:7px 10px; font-size:12px;">
+                           <button class="btn btn-success btn-sm" onclick="deliverOrder(${o.id})">📨 موافقة وتسليم</button>
+                       </div>
+                       <div style="display:flex; gap:6px;">
+                           <input type="text" id="reject-order-reason-${o.id}" placeholder="أو اكتب سبب الرفض هنا..." style="padding:7px 10px; font-size:12px;">
+                           <button class="btn btn-danger btn-sm" onclick="rejectOrder(${o.id})">❌ رفض الطلب</button>
+                       </div>
                    </div>`
-                : `<code>${escapeHtml(o.accountData || 'تم التسليم')}</code>`;
+                : (o.status === 'REJECTED'
+                    ? `<small style="color:#f87171;">مرفوض: ${escapeHtml(o.rejectionReason)}</small>`
+                    : `<code>${escapeHtml(o.accountData || 'تم التسليم')}</code>`);
 
             return `
                 <tr>
-                    <td><code>#${o.id}</code></td>
+                    <td><code>#${o.id}</code><br><small style="color:var(--text-secondary); font-size:11px;">${o.createdAt}</small></td>
                     <td>
                         <strong>${escapeHtml(o.userName || 'عميل')}</strong><br>
                         <code>${o.userId}</code>
                     </td>
                     <td>${escapeHtml(o.productName)}</td>
-                    <td><strong style="color:var(--success);">$${Number(o.price).toFixed(2)}</strong></td>
+                    <td>${paymentInfo}</td>
+                    <td>${proofHtml}</td>
                     <td>${badge}</td>
                     <td>${deliveryCell}</td>
-                    <td style="color:var(--text-secondary); font-size:12px;">${o.createdAt}</td>
                 </tr>
             `;
         }).join('');
@@ -1235,7 +1440,7 @@
         const input = document.getElementById('deliver-input-' + orderId);
         const accountData = input.value.trim();
         if (!accountData) {
-            showToast('⚠️ يرجى كتابة بيانات الحساب أولاً');
+            showToast('⚠️ يرجى كتابة بيانات الحساب أولاً للتسليم');
             return;
         }
         const res = await fetch('/api/orders/deliver', {
@@ -1245,14 +1450,33 @@
         });
         const data = await res.json();
         if (data.success) {
-            showToast('✅ تم تسليم الحساب للعميل في التلغرام وتحديث حالة الطلب!');
+            showToast('✅ تم تسليم الحساب للعميل في التلغرام (وخصم الرصيد إن كان من المحفظة)!');
             loadDashboard();
         } else {
             showToast('❌ ' + (data.message || 'فشل التسليم'));
         }
     }
 
-    // ==================== RENDER USERS ====================
+    async function rejectOrder(orderId) {
+        const input = document.getElementById('reject-order-reason-' + orderId);
+        const reason = input ? input.value.trim() : '';
+        if (!reason) {
+            showToast('⚠️ يرجى كتابة سبب رفض الطلب أولاً');
+            return;
+        }
+        const res = await fetch('/api/orders/reject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId, reason })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('❌ تم رفض الطلب وإرسال السبب للعميل في التلغرام');
+            loadDashboard();
+        }
+    }
+
+    // ==================== 5. RENDER USERS ====================
     function renderUsers(users) {
         const tbody = document.getElementById('users-tbody');
         if (!users || users.length === 0) {
@@ -1297,8 +1521,6 @@
             input.value = '';
             showToast(`✅ تم تحديث الرصيد إلى $${Number(data.newBalance).toFixed(2)} وإرسال إشعار للعميل!`);
             loadDashboard();
-        } else {
-            showToast('❌ ' + (data.message || 'فشل تحديث الرصيد'));
         }
     }
 

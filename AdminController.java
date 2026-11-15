@@ -75,18 +75,24 @@ public class AdminController {
         List<DatabaseManager.User> users = db.getAllUsers();
         List<DatabaseManager.Order> orders = db.getAllOrders();
         List<DatabaseManager.Product> products = db.getAllProducts();
+        List<DatabaseManager.PaymentMethod> paymentMethods = db.getAllPaymentMethods();
+        List<DatabaseManager.TopupRequest> topups = db.getAllTopupRequests();
 
-        long pendingCount = orders.stream().filter(o -> "PENDING".equals(o.status)).count();
-        double totalSales = orders.stream().mapToDouble(o -> o.price).sum();
+        long pendingOrdersCount = orders.stream().filter(o -> "PENDING".equals(o.status)).count();
+        long pendingTopupsCount = topups.stream().filter(t -> "PENDING_ADMIN".equals(t.status)).count();
+        double totalSales = orders.stream().filter(o -> "COMPLETED".equals(o.status)).mapToDouble(o -> o.price).sum();
 
         Map<String, Object> data = new HashMap<>();
         data.put("users", users);
         data.put("orders", orders);
         data.put("products", products);
+        data.put("paymentMethods", paymentMethods);
+        data.put("topups", topups);
         data.put("stats", Map.of(
                 "usersCount", users.size(),
                 "ordersCount", orders.size(),
-                "pendingCount", pendingCount,
+                "pendingCount", pendingOrdersCount,
+                "pendingTopupsCount", pendingTopupsCount,
                 "totalSales", totalSales
         ));
         return ResponseEntity.ok(data);
@@ -102,7 +108,7 @@ public class AdminController {
         try {
             long chatId = Long.parseLong(String.valueOf(body.get("chatId")));
             double amount = Double.parseDouble(String.valueOf(body.get("amount")));
-            String mode = String.valueOf(body.getOrDefault("mode", "add")); // "add" or "set"
+            String mode = String.valueOf(body.getOrDefault("mode", "add"));
 
             double newBalance;
             if ("set".equalsIgnoreCase(mode)) {
@@ -119,7 +125,7 @@ public class AdminController {
         }
     }
 
-    // ==================== 2. ORDERS ====================
+    // ==================== 2. ORDERS (APPROVE / DELIVER / REJECT) ====================
 
     @PostMapping("/orders/deliver")
     public ResponseEntity<?> deliverPendingOrder(@RequestBody Map<String, Object> body, HttpSession session) {
@@ -144,7 +150,137 @@ public class AdminController {
         }
     }
 
-    // ==================== 3. PRODUCTS & OFFERS ====================
+    @PostMapping("/orders/reject")
+    public ResponseEntity<?> rejectPendingOrder(@RequestBody Map<String, Object> body, HttpSession session) {
+        if (!isAuthenticated(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            int orderId = Integer.parseInt(String.valueOf(body.get("orderId")));
+            String reason = String.valueOf(body.getOrDefault("reason", "")).trim();
+            if (reason.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "يرجى كتابة سبب الرفض"));
+            }
+            DatabaseManager.Order rejected = db.rejectPendingOrder(orderId, reason);
+            if (rejected != null) {
+                bot.notifyOrderRejected(rejected);
+                return ResponseEntity.ok(Map.of("success", true));
+            }
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "لم يتم العثور على الطلب"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    // ==================== 3. PAYMENT METHODS ====================
+
+    @PostMapping("/payment-methods")
+    public ResponseEntity<?> createPaymentMethod(
+            @RequestParam("name") String name,
+            @RequestParam("currency") String currency,
+            @RequestParam("instructions") String instructions,
+            @RequestParam(value = "image", required = false) MultipartFile image,
+            HttpSession session) {
+        if (!isAuthenticated(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        if (name == null || name.isBlank() || instructions == null || instructions.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "يرجى إدخال اسم الوسيلة والإجراءات"));
+        }
+
+        String savedIconPath = "";
+        String customEmojiId = "";
+        if (image != null && !image.isEmpty()) {
+            try {
+                File uploadDir = new File("uploads");
+                if (!uploadDir.exists()) uploadDir.mkdirs();
+                String originalName = image.getOriginalFilename();
+                String ext = ".png";
+                if (originalName != null && originalName.contains(".")) {
+                    ext = originalName.substring(originalName.lastIndexOf("."));
+                }
+                String fileName = "pm_" + UUID.randomUUID().toString().substring(0, 8) + ext;
+                Path targetPath = Paths.get("uploads", fileName);
+                Files.write(targetPath, image.getBytes());
+                savedIconPath = "uploads/" + fileName;
+                customEmojiId = emojiService.createCustomEmojiFromImage(targetPath.toFile());
+            } catch (IOException e) {
+                return ResponseEntity.internalServerError().body(Map.of("success", false, "message", "فشل رفع الأيقونة: " + e.getMessage()));
+            }
+        }
+
+        int id = db.addPaymentMethod(name.trim(), currency.trim(), savedIconPath, customEmojiId, instructions.trim());
+        return ResponseEntity.ok(Map.of("success", id != -1, "id", id));
+    }
+
+    @PutMapping("/payment-methods/{id}")
+    public ResponseEntity<?> updatePaymentMethod(
+            @PathVariable int id,
+            @RequestBody Map<String, Object> body,
+            HttpSession session) {
+        if (!isAuthenticated(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String name = String.valueOf(body.getOrDefault("name", "")).trim();
+        String currency = String.valueOf(body.getOrDefault("currency", "DZD")).trim();
+        String instructions = String.valueOf(body.getOrDefault("instructions", "")).trim();
+        boolean updated = db.updatePaymentMethod(id, name, currency, instructions);
+        return ResponseEntity.ok(Map.of("success", updated));
+    }
+
+    @DeleteMapping("/payment-methods/{id}")
+    public ResponseEntity<?> deletePaymentMethod(@PathVariable int id, HttpSession session) {
+        if (!isAuthenticated(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        boolean deleted = db.deletePaymentMethod(id);
+        return ResponseEntity.ok(Map.of("success", deleted));
+    }
+
+    // ==================== 4. TOPUP REQUESTS (APPROVE / REJECT) ====================
+
+    @PostMapping("/topups/approve")
+    public ResponseEntity<?> approveTopup(@RequestBody Map<String, Object> body, HttpSession session) {
+        if (!isAuthenticated(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            int topupId = Integer.parseInt(String.valueOf(body.get("topupId")));
+            DatabaseManager.TopupRequest approved = db.approveTopupRequest(topupId);
+            if (approved != null) {
+                bot.notifyTopupApproved(approved);
+                return ResponseEntity.ok(Map.of("success", true));
+            }
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "تعذر تأكيد الطلب"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/topups/reject")
+    public ResponseEntity<?> rejectTopup(@RequestBody Map<String, Object> body, HttpSession session) {
+        if (!isAuthenticated(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            int topupId = Integer.parseInt(String.valueOf(body.get("topupId")));
+            String reason = String.valueOf(body.getOrDefault("reason", "")).trim();
+            if (reason.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "يرجى كتابة سبب الرفض"));
+            }
+            DatabaseManager.TopupRequest rejected = db.rejectTopupRequest(topupId, reason);
+            if (rejected != null) {
+                bot.notifyTopupRejected(rejected);
+                return ResponseEntity.ok(Map.of("success", true));
+            }
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "تعذر رفض الطلب"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    // ==================== 5. PRODUCTS & OFFERS ====================
 
     @PostMapping("/products")
     public ResponseEntity<?> createProduct(
@@ -177,7 +313,6 @@ public class AdminController {
                 Files.write(targetPath, image.getBytes());
                 savedImagePath = "uploads/" + fileName;
 
-                // Automatically convert uploaded logo to Telegram Custom Emoji for inline buttons!
                 customEmojiId = emojiService.createCustomEmojiFromImage(targetPath.toFile());
             } catch (IOException e) {
                 return ResponseEntity.internalServerError().body(Map.of("success", false, "message", "فشل رفع الشعار: " + e.getMessage()));
@@ -355,7 +490,7 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("success", deleted));
     }
 
-    // ==================== 4. HEALTH & BACKUP FOR FREE CLOUD HOSTING ====================
+    // ==================== 6. HEALTH & BACKUP ====================
 
     @GetMapping("/health")
     public ResponseEntity<?> healthCheck() {

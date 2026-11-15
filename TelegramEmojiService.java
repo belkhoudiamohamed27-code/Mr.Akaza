@@ -188,4 +188,31 @@ public class TelegramEmojiService {
             System.err.println("Telegram JSON API error (" + url + "): " + e.getMessage());
         }
     }
+
+    public String downloadTelegramFileToUploads(String fileId, String prefix) {
+        try {
+            String resp = restTemplate.getForObject(apiUrl("getFile?file_id=" + fileId), String.class);
+            JsonNode root = objectMapper.readTree(resp);
+            if (root.path("ok").asBoolean()) {
+                String tgFilePath = root.path("result").path("file_path").asText("");
+                if (!tgFilePath.isEmpty()) {
+                    String ext = ".jpg";
+                    if (tgFilePath.contains(".")) {
+                        ext = tgFilePath.substring(tgFilePath.lastIndexOf("."));
+                    }
+                    String downloadUrl = "https://api.telegram.org/file/bot" + MohServiceBot.BOT_TOKEN + "/" + tgFilePath;
+                    byte[] fileBytes = restTemplate.getForObject(downloadUrl, byte[].class);
+                    if (fileBytes != null && fileBytes.length > 0) {
+                        new File("uploads").mkdirs();
+                        String localName = prefix + "_" + System.currentTimeMillis() + ext;
+                        java.nio.file.Files.write(java.nio.file.Paths.get("uploads", localName), fileBytes);
+                        return "uploads/" + localName;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error downloading Telegram file: " + e.getMessage());
+        }
+        return "";
+    }
 }
