@@ -57,8 +57,16 @@ public class DatabaseManager {
         public String description;
         public boolean isAvailable;
         public int availableStock;
+        public String sourceBots;
+        public String sourceProductBtn;
+        public String sourceOfferKeyword;
+        public double profitMargin;
+        public double lastSourcePrice;
+        public boolean autoSync;
 
-        public Offer(int id, int productId, String productName, String name, double price, String description, boolean isAvailable, int availableStock) {
+        public Offer(int id, int productId, String productName, String name, double price, String description,
+                     boolean isAvailable, int availableStock, String sourceBots, String sourceProductBtn,
+                     String sourceOfferKeyword, double profitMargin, double lastSourcePrice, boolean autoSync) {
             this.id = id;
             this.productId = productId;
             this.productName = productName;
@@ -67,6 +75,35 @@ public class DatabaseManager {
             this.description = description;
             this.isAvailable = isAvailable;
             this.availableStock = availableStock;
+            this.sourceBots = sourceBots != null ? sourceBots : "";
+            this.sourceProductBtn = sourceProductBtn != null ? sourceProductBtn : "";
+            this.sourceOfferKeyword = sourceOfferKeyword != null ? sourceOfferKeyword : "";
+            this.profitMargin = profitMargin;
+            this.lastSourcePrice = lastSourcePrice;
+            this.autoSync = autoSync;
+        }
+    }
+
+    public static class WatcherConfig {
+        public String apiId;
+        public String apiHash;
+        public String phone;
+        public String sessionString;
+        public boolean isConnected;
+        public int intervalMinutes;
+        public String lastSyncAt;
+        public String lastSyncLog;
+
+        public WatcherConfig(String apiId, String apiHash, String phone, String sessionString,
+                             boolean isConnected, int intervalMinutes, String lastSyncAt, String lastSyncLog) {
+            this.apiId = apiId != null ? apiId : "";
+            this.apiHash = apiHash != null ? apiHash : "";
+            this.phone = phone != null ? phone : "";
+            this.sessionString = sessionString != null ? sessionString : "";
+            this.isConnected = isConnected;
+            this.intervalMinutes = intervalMinutes > 0 ? intervalMinutes : 15;
+            this.lastSyncAt = lastSyncAt != null ? lastSyncAt : "لم يتم الفحص بعد";
+            this.lastSyncLog = lastSyncLog != null ? lastSyncLog : "";
         }
     }
 
@@ -304,6 +341,20 @@ public class DatabaseManager {
                 );
                 """;
 
+        String createWatcherConfig = """
+                CREATE TABLE IF NOT EXISTS watcher_config (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    api_id TEXT DEFAULT '',
+                    api_hash TEXT DEFAULT '',
+                    phone TEXT DEFAULT '',
+                    session_string TEXT DEFAULT '',
+                    is_connected INTEGER DEFAULT 0,
+                    interval_minutes INTEGER DEFAULT 15,
+                    last_sync_at TEXT DEFAULT '',
+                    last_sync_log TEXT DEFAULT ''
+                );
+                """;
+
         try (Connection conn = connect();
              Statement stmt = conn.createStatement()) {
             stmt.execute(createUsers);
@@ -314,11 +365,19 @@ public class DatabaseManager {
             stmt.execute(createPaymentMethods);
             stmt.execute(createTopupRequests);
             stmt.execute(createNotifications);
+            stmt.execute(createWatcherConfig);
+            stmt.execute("INSERT OR IGNORE INTO watcher_config (id, interval_minutes) VALUES (1, 15)");
 
             // Safe migrations
             safeAddColumn(conn, "products", "category", "TEXT DEFAULT '1'");
             safeAddColumn(conn, "products", "image_path", "TEXT DEFAULT ''");
             safeAddColumn(conn, "products", "custom_emoji_id", "TEXT DEFAULT ''");
+            safeAddColumn(conn, "offers", "source_bots", "TEXT DEFAULT ''");
+            safeAddColumn(conn, "offers", "source_product_btn", "TEXT DEFAULT ''");
+            safeAddColumn(conn, "offers", "source_offer_keyword", "TEXT DEFAULT ''");
+            safeAddColumn(conn, "offers", "profit_margin", "REAL DEFAULT 0.30");
+            safeAddColumn(conn, "offers", "last_source_price", "REAL DEFAULT 0.0");
+            safeAddColumn(conn, "offers", "auto_sync", "INTEGER DEFAULT 0");
             safeAddColumn(conn, "stock", "offer_id", "INTEGER DEFAULT 0");
             safeAddColumn(conn, "orders", "offer_id", "INTEGER DEFAULT 0");
             safeAddColumn(conn, "orders", "payment_type", "TEXT DEFAULT 'WALLET'");
@@ -1037,16 +1096,7 @@ public class DatabaseManager {
             pstmt.setInt(1, productId);
             ResultSet rs = pstmt.executeQuery();
             while (rs.next()) {
-                offers.add(new Offer(
-                        rs.getInt("id"),
-                        rs.getInt("product_id"),
-                        rs.getString("product_name"),
-                        rs.getString("name"),
-                        rs.getDouble("price"),
-                        rs.getString("description"),
-                        rs.getInt("is_available") == 1,
-                        rs.getInt("available_stock")
-                ));
+                offers.add(mapOfferRow(rs));
             }
         } catch (SQLException e) {
             System.err.println("Error in getOffersByProductId: " + e.getMessage());
@@ -1067,21 +1117,175 @@ public class DatabaseManager {
             pstmt.setInt(1, offerId);
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-                return new Offer(
-                        rs.getInt("id"),
-                        rs.getInt("product_id"),
-                        rs.getString("product_name"),
-                        rs.getString("name"),
-                        rs.getDouble("price"),
-                        rs.getString("description"),
-                        rs.getInt("is_available") == 1,
-                        rs.getInt("available_stock")
-                );
+                return mapOfferRow(rs);
             }
         } catch (SQLException e) {
             System.err.println("Error in getOfferById: " + e.getMessage());
         }
         return null;
+    }
+
+    public synchronized List<Offer> getAutoSyncOffers() {
+        List<Offer> offers = new ArrayList<>();
+        String sql = """
+                SELECT o.*, p.name AS product_name,
+                       (SELECT COUNT(*) FROM stock s WHERE (s.offer_id = o.id OR (s.offer_id = 0 AND s.product_id = o.product_id)) AND s.is_sold = 0) AS available_stock
+                FROM offers o
+                JOIN products p ON p.id = o.product_id
+                WHERE o.auto_sync = 1 AND o.source_bots != ''
+                ORDER BY o.id ASC
+                """;
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                offers.add(mapOfferRow(rs));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error in getAutoSyncOffers: " + e.getMessage());
+        }
+        return offers;
+    }
+
+    private Offer mapOfferRow(ResultSet rs) throws SQLException {
+        double margin = 0.30;
+        try {
+            margin = rs.getDouble("profit_margin");
+        } catch (SQLException ignored) {
+        }
+        return new Offer(
+                rs.getInt("id"),
+                rs.getInt("product_id"),
+                rs.getString("product_name"),
+                rs.getString("name"),
+                rs.getDouble("price"),
+                rs.getString("description"),
+                rs.getInt("is_available") == 1,
+                rs.getInt("available_stock"),
+                rs.getString("source_bots"),
+                rs.getString("source_product_btn"),
+                rs.getString("source_offer_keyword"),
+                margin,
+                rs.getDouble("last_source_price"),
+                rs.getInt("auto_sync") == 1
+        );
+    }
+
+    public synchronized boolean updateOfferWatcherSettings(int offerId, String sourceBots, String sourceProductBtn,
+                                                           String sourceOfferKeyword, double profitMargin, boolean autoSync) {
+        initDatabase();
+        String sql = """
+                UPDATE offers
+                SET source_bots = ?, source_product_btn = ?, source_offer_keyword = ?, profit_margin = ?, auto_sync = ?
+                WHERE id = ?
+                """;
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, sourceBots != null ? sourceBots.trim() : "");
+            pstmt.setString(2, sourceProductBtn != null ? sourceProductBtn.trim() : "");
+            pstmt.setString(3, sourceOfferKeyword != null ? sourceOfferKeyword.trim() : "");
+            pstmt.setDouble(4, profitMargin);
+            pstmt.setInt(5, autoSync ? 1 : 0);
+            pstmt.setInt(6, offerId);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error in updateOfferWatcherSettings: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public synchronized boolean applySyncedOfferResult(int offerId, double sourcePrice, double finalSellPrice, boolean isAvailable) {
+        String sql = "UPDATE offers SET last_source_price = ?, price = ?, is_available = ? WHERE id = ?";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setDouble(1, sourcePrice);
+            pstmt.setDouble(2, finalSellPrice);
+            pstmt.setInt(3, isAvailable ? 1 : 0);
+            pstmt.setInt(4, offerId);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error in applySyncedOfferResult: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public synchronized void updateProductCustomEmojiIfEmpty(int productId, String customEmojiId) {
+        if (customEmojiId == null || customEmojiId.isBlank()) return;
+        String sql = "UPDATE products SET custom_emoji_id = ? WHERE id = ? AND (custom_emoji_id IS NULL OR custom_emoji_id = '')";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, customEmojiId.trim());
+            pstmt.setInt(2, productId);
+            pstmt.executeUpdate();
+        } catch (SQLException ignored) {
+        }
+    }
+
+    // ==================== WATCHER CONFIG ====================
+
+    public synchronized WatcherConfig getWatcherConfig() {
+        initDatabase();
+        String sql = "SELECT * FROM watcher_config WHERE id = 1";
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                return new WatcherConfig(
+                        rs.getString("api_id"),
+                        rs.getString("api_hash"),
+                        rs.getString("phone"),
+                        rs.getString("session_string"),
+                        rs.getInt("is_connected") == 1,
+                        rs.getInt("interval_minutes"),
+                        rs.getString("last_sync_at"),
+                        rs.getString("last_sync_log")
+                );
+            }
+        } catch (SQLException e) {
+            System.err.println("Error in getWatcherConfig: " + e.getMessage());
+        }
+        return new WatcherConfig("", "", "", "", false, 15, "", "");
+    }
+
+    public synchronized void saveWatcherCredentials(String apiId, String apiHash, String phone, int intervalMinutes) {
+        initDatabase();
+        String sql = "UPDATE watcher_config SET api_id = ?, api_hash = ?, phone = ?, interval_minutes = ? WHERE id = 1";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, apiId != null ? apiId.trim() : "");
+            pstmt.setString(2, apiHash != null ? apiHash.trim() : "");
+            pstmt.setString(3, phone != null ? phone.trim() : "");
+            pstmt.setInt(4, intervalMinutes > 0 ? intervalMinutes : 15);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Error in saveWatcherCredentials: " + e.getMessage());
+        }
+    }
+
+    public synchronized void saveWatcherSession(String sessionString, boolean isConnected) {
+        initDatabase();
+        String sql = "UPDATE watcher_config SET session_string = ?, is_connected = ? WHERE id = 1";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, sessionString != null ? sessionString.trim() : "");
+            pstmt.setInt(2, isConnected ? 1 : 0);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Error in saveWatcherSession: " + e.getMessage());
+        }
+    }
+
+    public synchronized void saveWatcherSyncLog(String logText) {
+        initDatabase();
+        String sql = "UPDATE watcher_config SET last_sync_at = ?, last_sync_log = ? WHERE id = 1";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, now());
+            pstmt.setString(2, logText != null ? logText : "");
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Error in saveWatcherSyncLog: " + e.getMessage());
+        }
     }
 
     // ==================== AVAILABILITY NOTIFICATIONS ====================

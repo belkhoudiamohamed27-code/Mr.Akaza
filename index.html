@@ -522,6 +522,7 @@
         </div>
         <div class="nav-tabs">
             <button class="tab-btn active" onclick="switchTab('products', this)">🛒 المنتجات والعروض</button>
+            <button class="tab-btn" onclick="switchTab('watcher', this)">🤖 المزامنة التلقائية للأسعار</button>
             <button class="tab-btn" onclick="switchTab('payments', this)">💳 خيارات الدفع</button>
             <button class="tab-btn" onclick="switchTab('topups', this)">💵 طلبات الشحن <span id="nav-topups-badge" class="badge badge-warning" style="display:none;">0</span></button>
             <button class="tab-btn" onclick="switchTab('orders', this)">📦 طلبات الشراء <span id="nav-pending-badge" class="badge badge-warning" style="display:none;">0</span></button>
@@ -603,6 +604,76 @@
                     <h2>🗂 قائمة المنتجات والعروض التابعة لها</h2>
                 </div>
                 <div id="products-container"></div>
+            </div>
+        </div>
+
+        <!-- ==================== 1.5 AUTO PRICE WATCHER SECTION ==================== -->
+        <div id="panel-watcher" class="section-panel">
+            <div class="card">
+                <div class="card-header">
+                    <h2>🤖 إعدادات حساب المراقب الآلي لبوتات المصادر (Telegram Userbot Watcher)</h2>
+                    <span id="watcher-status-badge" class="badge badge-warning">⚪ غير متصل</span>
+                </div>
+                <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                    يقوم هذا النظام بالدخول تلقائياً إلى بوتات المصادر في تلغرام، وقراءة الأسعار الحالية وحالة التوفر، واختيار <b>أرخص سعر متوفر</b> وإضافة ربحك (مثلاً <code>+$0.30</code>) وتحديث السعر في بوتك تلقائياً!
+                    (احصل على <code>API_ID</code> و <code>API_HASH</code> مجاناً من <a href="https://my.telegram.org" target="_blank" style="color:var(--accent);">my.telegram.org</a>).
+                </p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Telegram API_ID</label>
+                        <input type="text" id="w-api-id" placeholder="مثال: 12345678">
+                    </div>
+                    <div class="form-group">
+                        <label>Telegram API_HASH</label>
+                        <input type="text" id="w-api-hash" placeholder="مثال: a1b2c3d4e5f6...">
+                    </div>
+                    <div class="form-group">
+                        <label>رقم الهاتف مع رمز الدولة (لإرسال كود التفعيل)</label>
+                        <input type="text" id="w-phone" placeholder="مثال: +213600000000">
+                    </div>
+                    <div class="form-group">
+                        <label>فترة الفحص التلقائي (بالدقائق)</label>
+                        <input type="number" id="w-interval" value="15" min="5">
+                    </div>
+                </div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                    <button class="btn" onclick="sendWatcherLoginCode()">📲 1. إرسال كود الدخول للتلغرام</button>
+                    <input type="text" id="w-code" placeholder="أدخل الكود الذي وصلك في تلغرام..." style="width:220px;">
+                    <input type="password" id="w-2fa" placeholder="كلمة مرور التحقق بخطوتين (إن وجدت)" style="width:220px;">
+                    <button class="btn btn-success" onclick="verifyWatcherLoginCode()">✅ 2. تأكيد وربط الحساب</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>⚡ ربط العروض ببوتات المصادر والمزامنة التلقائية (+0.30$)</h2>
+                    <button class="btn btn-success" onclick="triggerWatcherSyncNow()">🔄 فحص ومزامنة جميع الأسعار من المصادر الآن!</button>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>المنتج والعرض في بوتك</th>
+                                <th>بوتات المصادر (افصل بفاصلة للمقارنة وأخذ الأرخص)</th>
+                                <th>اسم زر المنتج بالمصدر</th>
+                                <th>كلمة الباقة بالمصدر</th>
+                                <th>هامش ربحك ($)</th>
+                                <th>آخر سعر بالمصدر</th>
+                                <th>سعرك النهائي</th>
+                                <th>تفعيل وحفظ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="watcher-offers-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>📋 سجل آخر عملية فحص ومزامنة تلقائية</h2>
+                    <small id="watcher-last-sync-time" style="color:var(--text-secondary);"></small>
+                </div>
+                <pre id="watcher-sync-log" style="background:var(--bg-input); border:1px solid var(--border-color); padding:16px; border-radius:10px; font-size:13px; color:#a5b4fc; white-space:pre-wrap; min-height:80px;">لا يوجد سجل فحص حتى الآن.</pre>
             </div>
         </div>
 
@@ -957,10 +1028,152 @@
         }
 
         renderProducts(data.products);
+        renderWatcherSection(data.watcherConfig, data.products);
         renderPaymentMethods(data.paymentMethods);
         renderTopups(data.topups);
         renderOrders(data.orders);
         renderUsers(data.users);
+    }
+
+    // ==================== 1.5 RENDER AUTO PRICE WATCHER ====================
+    function renderWatcherSection(cfg, products) {
+        if (cfg) {
+            document.getElementById('w-api-id').value = cfg.apiId || '';
+            document.getElementById('w-api-hash').value = cfg.apiHash || '';
+            document.getElementById('w-phone').value = cfg.phone || '';
+            document.getElementById('w-interval').value = cfg.intervalMinutes || 15;
+            document.getElementById('watcher-last-sync-time').textContent = 'آخر فحص: ' + (cfg.lastSyncAt || 'لم يتم بعد');
+            document.getElementById('watcher-sync-log').textContent = cfg.lastSyncLog || 'لا يوجد سجل فحص حتى الآن.';
+
+            const badge = document.getElementById('watcher-status-badge');
+            if (cfg.isConnected) {
+                badge.className = 'badge badge-success';
+                badge.textContent = '🟢 حساب المراقب متصل وجاهز للمزامنة';
+            } else {
+                badge.className = 'badge badge-warning';
+                badge.textContent = '⚪ غير متصل (أدخل البيانات وأرسل الكود للربط)';
+            }
+        }
+
+        const tbody = document.getElementById('watcher-offers-tbody');
+        const allOffers = [];
+        (products || []).forEach(p => {
+            (p.offers || []).forEach(o => {
+                allOffers.push({ ...o, prodName: p.name });
+            });
+        });
+
+        if (allOffers.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-secondary); padding:24px;">أضف منتجات وعروض أولاً لتتمكن من ربطها ببوتات المصادر</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = allOffers.map(o => `
+            <tr>
+                <td>
+                    <strong>${escapeHtml(o.prodName)}</strong><br>
+                    <small style="color:var(--text-secondary);">${escapeHtml(o.name)} (#${o.id})</small>
+                </td>
+                <td>
+                    <input type="text" id="wo-bots-${o.id}" value="${escapeHtml(o.sourceBots || '')}" placeholder="@bot1, @bot2" style="min-width:150px; padding:7px 10px; font-size:12px;">
+                </td>
+                <td>
+                    <input type="text" id="wo-pbtn-${o.id}" value="${escapeHtml(o.sourceProductBtn || o.prodName)}" placeholder="مثال: Netflix" style="min-width:120px; padding:7px 10px; font-size:12px;">
+                </td>
+                <td>
+                    <input type="text" id="wo-kw-${o.id}" value="${escapeHtml(o.sourceOfferKeyword || '')}" placeholder="مثال: 1 Month" style="min-width:140px; padding:7px 10px; font-size:12px;">
+                </td>
+                <td>
+                    <input type="number" step="0.01" id="wo-margin-${o.id}" value="${o.profitMargin !== undefined ? o.profitMargin : 0.30}" style="width:85px; padding:7px 10px; font-size:12px;">
+                </td>
+                <td><code>$${Number(o.lastSourcePrice || 0).toFixed(2)}</code></td>
+                <td><strong style="color:var(--success);">$${Number(o.price).toFixed(2)}</strong><br><small style="color:var(--text-secondary);">${Math.round(Number(o.price) * 260)} DZD</small></td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <label class="switch" title="تفعيل المزامنة التلقائية لهذا العرض">
+                            <input type="checkbox" id="wo-sync-${o.id}" ${o.autoSync ? 'checked' : ''}>
+                            <span class="slider"></span>
+                        </label>
+                        <button class="btn btn-success btn-sm" onclick="saveOfferWatcher(${o.id})">💾 حفظ</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async function sendWatcherLoginCode() {
+        const apiId = document.getElementById('w-api-id').value.trim();
+        const apiHash = document.getElementById('w-api-hash').value.trim();
+        const phone = document.getElementById('w-phone').value.trim();
+        const intervalMinutes = document.getElementById('w-interval').value;
+        if (!apiId || !apiHash || !phone) {
+            showToast('⚠️ يرجى إدخال API_ID و API_HASH ورقم الهاتف أولاً');
+            return;
+        }
+        showToast('⏳ جارٍ الاتصال بتلغرام وإرسال كود التحقق...');
+        const res = await fetch('/api/watcher/send-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiId, apiHash, phone, intervalMinutes })
+        });
+        const data = await res.json();
+        showToast((data.success ? '✅ ' : '❌ ') + (data.message || ''));
+    }
+
+    async function verifyWatcherLoginCode() {
+        const code = document.getElementById('w-code').value.trim();
+        const password = document.getElementById('w-2fa').value.trim();
+        if (!code) {
+            showToast('⚠️ يرجى إدخال الكود الذي وصلك في تلغرام');
+            return;
+        }
+        showToast('⏳ جارٍ التحقق من الكود وربط الحساب...');
+        const res = await fetch('/api/watcher/verify-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, password })
+        });
+        const data = await res.json();
+        showToast((data.success ? '✅ ' : '❌ ') + (data.message || ''));
+        if (data.success) {
+            loadDashboard();
+        }
+    }
+
+    async function saveOfferWatcher(offerId) {
+        const payload = {
+            offerId,
+            sourceBots: document.getElementById('wo-bots-' + offerId).value,
+            sourceProductBtn: document.getElementById('wo-pbtn-' + offerId).value,
+            sourceOfferKeyword: document.getElementById('wo-kw-' + offerId).value,
+            profitMargin: document.getElementById('wo-margin-' + offerId).value,
+            autoSync: document.getElementById('wo-sync-' + offerId).checked
+        };
+        const res = await fetch('/api/offers/watcher', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('✅ تم حفظ إعدادات مراقبة المصدر لهذا العرض!');
+            loadDashboard();
+        } else {
+            showToast('❌ ' + (data.message || 'فشل الحفظ'));
+        }
+    }
+
+    async function triggerWatcherSyncNow() {
+        showToast('⏳ جارٍ الدخول لبوتات المصادر وفحص الأسعار والتوفر... قد يستغرق 15-30 ثانية');
+        const res = await fetch('/api/watcher/sync-now', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`✅ تمت المزامنة بنجاح وتحديث ${data.updatedCount} عرض!`);
+            loadDashboard();
+        } else {
+            showToast('❌ ' + (data.message || 'فشل الفحص'));
+            loadDashboard();
+        }
     }
 
     // ==================== 1. RENDER PRODUCTS & OFFERS ====================

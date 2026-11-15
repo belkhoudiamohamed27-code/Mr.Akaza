@@ -31,11 +31,13 @@ public class AdminController {
     private final DatabaseManager db;
     private final MohServiceBot bot;
     private final TelegramEmojiService emojiService;
+    private final SourceWatcherService watcherService;
 
-    public AdminController(DatabaseManager db, MohServiceBot bot, TelegramEmojiService emojiService) {
+    public AdminController(DatabaseManager db, MohServiceBot bot, TelegramEmojiService emojiService, SourceWatcherService watcherService) {
         this.db = db;
         this.bot = bot;
         this.emojiService = emojiService;
+        this.watcherService = watcherService;
         new File("uploads").mkdirs();
     }
 
@@ -88,6 +90,7 @@ public class AdminController {
         data.put("products", products);
         data.put("paymentMethods", paymentMethods);
         data.put("topups", topups);
+        data.put("watcherConfig", db.getWatcherConfig());
         data.put("stats", Map.of(
                 "usersCount", users.size(),
                 "ordersCount", orders.size(),
@@ -497,7 +500,87 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("success", deleted));
     }
 
-    // ==================== 6. HEALTH & BACKUP ====================
+    // ==================== 6. AUTO PRICE WATCHER (USERBOT) ====================
+
+    @PostMapping("/watcher/send-code")
+    public ResponseEntity<?> watcherSendCode(@RequestBody Map<String, Object> body, HttpSession session) {
+        if (!isAuthenticated(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String apiId = String.valueOf(body.getOrDefault("apiId", "")).trim();
+        String apiHash = String.valueOf(body.getOrDefault("apiHash", "")).trim();
+        String phone = String.valueOf(body.getOrDefault("phone", "")).trim();
+        int interval = 15;
+        try {
+            interval = Integer.parseInt(String.valueOf(body.getOrDefault("intervalMinutes", "15")));
+        } catch (NumberFormatException ignored) {
+        }
+        if (apiId.isEmpty() || apiHash.isEmpty() || phone.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "يرجى إدخال API_ID و API_HASH ورقم الهاتف"));
+        }
+        return ResponseEntity.ok(watcherService.sendLoginCode(apiId, apiHash, phone, interval));
+    }
+
+    @PostMapping("/watcher/verify-code")
+    public ResponseEntity<?> watcherVerifyCode(@RequestBody Map<String, Object> body, HttpSession session) {
+        if (!isAuthenticated(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String code = String.valueOf(body.getOrDefault("code", "")).trim();
+        String password = String.valueOf(body.getOrDefault("password", "")).trim();
+        if (code.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "يرجى إدخال كود التحقق"));
+        }
+        return ResponseEntity.ok(watcherService.verifyLoginCode(code, password));
+    }
+
+    @PostMapping("/watcher/save-session")
+    public ResponseEntity<?> watcherSaveSessionString(@RequestBody Map<String, Object> body, HttpSession session) {
+        if (!isAuthenticated(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String apiId = String.valueOf(body.getOrDefault("apiId", "")).trim();
+        String apiHash = String.valueOf(body.getOrDefault("apiHash", "")).trim();
+        String sessionString = String.valueOf(body.getOrDefault("sessionString", "")).trim();
+        int interval = 15;
+        try {
+            interval = Integer.parseInt(String.valueOf(body.getOrDefault("intervalMinutes", "15")));
+        } catch (NumberFormatException ignored) {
+        }
+        db.saveWatcherCredentials(apiId, apiHash, "", interval);
+        db.saveWatcherSession(sessionString, !sessionString.isEmpty());
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @PostMapping("/offers/watcher")
+    public ResponseEntity<?> updateOfferWatcher(@RequestBody Map<String, Object> body, HttpSession session) {
+        if (!isAuthenticated(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            int offerId = Integer.parseInt(String.valueOf(body.get("offerId")));
+            String sourceBots = String.valueOf(body.getOrDefault("sourceBots", "")).trim();
+            String sourceProductBtn = String.valueOf(body.getOrDefault("sourceProductBtn", "")).trim();
+            String sourceOfferKeyword = String.valueOf(body.getOrDefault("sourceOfferKeyword", "")).trim();
+            double profitMargin = Double.parseDouble(String.valueOf(body.getOrDefault("profitMargin", "0.30")));
+            boolean autoSync = Boolean.parseBoolean(String.valueOf(body.getOrDefault("autoSync", "true")));
+
+            boolean updated = db.updateOfferWatcherSettings(offerId, sourceBots, sourceProductBtn, sourceOfferKeyword, profitMargin, autoSync);
+            return ResponseEntity.ok(Map.of("success", updated));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/watcher/sync-now")
+    public ResponseEntity<?> watcherSyncNow(HttpSession session) {
+        if (!isAuthenticated(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(watcherService.runAutoSyncNow());
+    }
+
+    // ==================== 7. HEALTH & BACKUP ====================
 
     @GetMapping("/health")
     public ResponseEntity<?> healthCheck() {
