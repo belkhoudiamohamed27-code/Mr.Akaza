@@ -182,7 +182,8 @@ public class AdminController {
             @RequestParam(value = "image", required = false) MultipartFile image,
             HttpSession session) {
         if (!isAuthenticated(session)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("success", false, "message", "انتهت الجلسة، يرجى إعادة تسجيل الدخول للداشبورد"));
         }
 
         if (name == null || name.isBlank() || instructions == null || instructions.isBlank()) {
@@ -204,14 +205,20 @@ public class AdminController {
                 Path targetPath = Paths.get("uploads", fileName);
                 Files.write(targetPath, image.getBytes());
                 savedIconPath = "uploads/" + fileName;
-                customEmojiId = emojiService.createCustomEmojiFromImage(targetPath.toFile());
-            } catch (IOException e) {
-                return ResponseEntity.internalServerError().body(Map.of("success", false, "message", "فشل رفع الأيقونة: " + e.getMessage()));
+                try {
+                    customEmojiId = emojiService.createCustomEmojiFromImage(targetPath.toFile());
+                } catch (Exception ignored) {
+                }
+            } catch (Exception e) {
+                System.err.println("Warning saving payment method icon: " + e.getMessage());
             }
         }
 
         int id = db.addPaymentMethod(name.trim(), currency.trim(), savedIconPath, customEmojiId, instructions.trim());
-        return ResponseEntity.ok(Map.of("success", id != -1, "id", id));
+        if (id != -1) {
+            return ResponseEntity.ok(Map.of("success", true, "id", id));
+        }
+        return ResponseEntity.internalServerError().body(Map.of("success", false, "message", "خطأ في حفظ وسيلة الدفع في قاعدة البيانات"));
     }
 
     @PutMapping("/payment-methods/{id}")

@@ -483,6 +483,7 @@ public class DatabaseManager {
     // ==================== PAYMENT METHODS ====================
 
     public synchronized int addPaymentMethod(String name, String currency, String iconPath, String customEmojiId, String instructions) {
+        initDatabase();
         String sql = "INSERT INTO payment_methods (name, currency, icon_path, custom_emoji_id, instructions, is_active) VALUES (?, ?, ?, ?, ?, 1)";
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {

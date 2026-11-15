@@ -1273,14 +1273,27 @@
         if (fileInput.files.length > 0) {
             formData.append('image', fileInput.files[0]);
         }
-        const res = await fetch('/api/payment-methods', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (data.success) {
-            document.getElementById('add-pm-form').reset();
-            showToast('✅ تم إضافة وسيلة الدفع بنجاح!');
-            loadDashboard();
-        } else {
-            showToast('❌ ' + (data.message || 'فشل إضافة وسيلة الدفع'));
+        try {
+            const res = await fetch('/api/payment-methods', { method: 'POST', body: formData });
+            if (res.status === 401) {
+                showToast('⚠️ انتهت الجلسة، يرجى إعادة تسجيل الدخول');
+                setTimeout(() => location.reload(), 1200);
+                return;
+            }
+            if (res.status === 404) {
+                showToast('⚠️ السيرفر على Render يعمل بالنسخة القديمة! يرجى رفع ملفات github_upload_files إلى GitHub ليتحدث Render.');
+                return;
+            }
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('add-pm-form').reset();
+                showToast('✅ تم إضافة وسيلة الدفع بنجاح!');
+                loadDashboard();
+            } else {
+                showToast('❌ ' + (data.message || 'فشل إضافة وسيلة الدفع'));
+            }
+        } catch (err) {
+            showToast('❌ خطأ في الاتصال بالسيرفر');
         }
     }
 
