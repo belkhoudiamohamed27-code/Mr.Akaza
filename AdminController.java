@@ -25,8 +25,8 @@ import java.util.UUID;
 @RequestMapping("/api")
 public class AdminController {
 
-    // Default Admin Password for Web Panel
-    public static final String ADMIN_PASSWORD = "admin";
+    // Admin Password for Web Panel
+    public static final String ADMIN_PASSWORD = System.getenv().getOrDefault("ADMIN_PASSWORD", "moh@#$$0808");
 
     private final DatabaseManager db;
     private final MohServiceBot bot;

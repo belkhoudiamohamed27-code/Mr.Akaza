@@ -22,7 +22,7 @@ public class Main {
                 TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
                 botsApi.registerBot(bot);
                 System.out.println("✅ Moh Service Telegram Bot is running!");
-                System.out.println("🌐 Web Admin Panel is available at: http://localhost:8080 (Password: admin)");
+                System.out.println("🌐 Web Admin Panel is available at: http://localhost:8080");
             } catch (TelegramApiException e) {
                 System.err.println("Failed to register Telegram bot: " + e.getMessage());
                 e.printStackTrace();
