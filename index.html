@@ -580,9 +580,10 @@
                         <div class="form-group">
                             <label>الفئة (القسم في البوت)</label>
                             <select id="prod-category" required>
-                                <option value="1">1- اشتراكات الترفيه 🎬</option>
-                                <option value="2">2- اشتراكات الذكاء الاصطناعي 🤖</option>
-                                <option value="3">3- اشتراكات السوشيال ميديا 📱</option>
+                                <option value="1">1- اشتراكات الترفيه 🎬 (قسم المنتجات)</option>
+                                <option value="2">2- اشتراكات الذكاء الاصطناعي 🤖 (قسم المنتجات)</option>
+                                <option value="3">3- خدمات السوشيال ميديا 📱 (صفحة البدأ)</option>
+                                <option value="4">4- خدمات IMEI 🔐 (صفحة البدأ)</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -828,9 +829,10 @@
             <div class="form-group" style="margin-bottom: 12px;">
                 <label>الفئة</label>
                 <select id="edit-prod-category" required>
-                    <option value="1">1- اشتراكات الترفيه 🎬</option>
-                    <option value="2">2- اشتراكات الذكاء الاصطناعي 🤖</option>
-                    <option value="3">3- اشتراكات السوشيال ميديا 📱</option>
+                    <option value="1">1- اشتراكات الترفيه 🎬 (قسم المنتجات)</option>
+                    <option value="2">2- اشتراكات الذكاء الاصطناعي 🤖 (قسم المنتجات)</option>
+                    <option value="3">3- خدمات السوشيال ميديا 📱 (صفحة البدأ)</option>
+                    <option value="4">4- خدمات IMEI 🔐 (صفحة البدأ)</option>
                 </select>
             </div>
             <div class="form-group" style="margin-bottom: 18px;">
@@ -861,7 +863,8 @@
     function categoryTitle(cat) {
         if (cat === '1') return '🎬 اشتراكات الترفيه';
         if (cat === '2') return '🤖 اشتراكات الذكاء الاصطناعي';
-        if (cat === '3') return '📱 اشتراكات السوشيال ميديا';
+        if (cat === '3') return '📱 خدمات السوشيال ميديا';
+        if (cat === '4') return '🔐 خدمات IMEI';
         return '📦 عام';
     }
 

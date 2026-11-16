@@ -82,7 +82,8 @@ public class MohServiceBot extends TelegramLongPollingBot {
         return switch (code) {
             case "1" -> "🎬 اشتراكات الترفيه";
             case "2" -> "🤖 اشتراكات الذكاء الاصطناعي";
-            case "3" -> "📱 اشتراكات السوشيال ميديا";
+            case "3" -> "📱 خدمات السوشيال ميديا";
+            case "4" -> "🔐 خدمات IMEI";
             default -> "📦 باقات متنوعة";
         };
     }
@@ -729,7 +730,9 @@ public class MohServiceBot extends TelegramLongPollingBot {
         return "👋 <b>أهلاً بك يا " + safeName + " في بوت Moh Service!</b> 🌟\n\n" +
                "متجرك المتكامل لشراء المنتجات والاشتراكات الرقمية بأفضل الأسعار وبتسليم فوري وآلي.\n\n" +
                "<blockquote>" +
-               "🛒 <b>المنتجات:</b> استعرض الفئات والباقات المتوفرة واشترِ بضغطة زر.\n" +
+               "🛒 <b>المنتجات:</b> اشتراكات الترفيه والذكاء الاصطناعي بضغطة زر.\n" +
+               "📱 <b>خدمات السوشيال ميديا:</b> باقات واشتراكات منصات التواصل الاجتماعي.\n" +
+               "🔐 <b>خدمات IMEI:</b> خدمات فك التشفير وفحص الأجهزة والـ IMEI.\n" +
                "👤 <b>حسابي:</b> عرض معلومات حسابك، المعرف الخاص بك، ورصيدك.\n" +
                "📦 <b>طلباتي:</b> سجل مشترياتك السابقة وحالة طلباتك الحالية.\n" +
                "💳 <b>المحفظة:</b> شحن رصيدك بالدولار أو الدينار الجزائري بسهولة.\n" +
@@ -745,6 +748,14 @@ public class MohServiceBot extends TelegramLongPollingBot {
         InlineKeyboardButton btnProducts = new InlineKeyboardButton("🛒 المنتجات");
         btnProducts.setCallbackData("products");
         row1.add(btnProducts);
+
+        List<InlineKeyboardButton> rowServices = new ArrayList<>();
+        InlineKeyboardButton btnSocial = new InlineKeyboardButton("📱 خدمات السوشيال ميديا");
+        btnSocial.setCallbackData("cat_3");
+        InlineKeyboardButton btnImei = new InlineKeyboardButton("🔐 خدمات IMEI");
+        btnImei.setCallbackData("cat_4");
+        rowServices.add(btnSocial);
+        rowServices.add(btnImei);
 
         List<InlineKeyboardButton> row2 = new ArrayList<>();
         InlineKeyboardButton btnAccount = new InlineKeyboardButton("👤 حسابي");
@@ -763,6 +774,7 @@ public class MohServiceBot extends TelegramLongPollingBot {
         row3.add(btnSupport);
 
         rows.add(row1);
+        rows.add(rowServices);
         rows.add(row2);
         rows.add(row3);
 
@@ -816,11 +828,6 @@ public class MohServiceBot extends TelegramLongPollingBot {
         b2.setCallbackData("cat_2");
         r2.add(b2);
 
-        List<InlineKeyboardButton> r3 = new ArrayList<>();
-        InlineKeyboardButton b3 = new InlineKeyboardButton("📱 اشتراكات السوشيال ميديا");
-        b3.setCallbackData("cat_3");
-        r3.add(b3);
-
         List<InlineKeyboardButton> backRow = new ArrayList<>();
         InlineKeyboardButton backBtn = new InlineKeyboardButton("🔙 رجوع للقائمة الرئيسية");
         backBtn.setCallbackData("main_menu");
@@ -828,7 +835,6 @@ public class MohServiceBot extends TelegramLongPollingBot {
 
         rows.add(r1);
         rows.add(r2);
-        rows.add(r3);
         rows.add(backRow);
 
         editOrReplaceWithHtml(chatId, messageId, isPhotoMessage, text, new InlineKeyboardMarkup(rows));
@@ -864,7 +870,11 @@ public class MohServiceBot extends TelegramLongPollingBot {
         }
 
         List<RichButton> backRow = new ArrayList<>();
-        backRow.add(new RichButton("🔙 رجوع للفئات", "products", null, null));
+        if ("3".equals(catCode) || "4".equals(catCode)) {
+            backRow.add(new RichButton("🔙 رجوع للقائمة الرئيسية", "main_menu", null, null));
+        } else {
+            backRow.add(new RichButton("🔙 رجوع للفئات", "products", null, null));
+        }
         rows.add(backRow);
 
         editOrReplaceWithRichButtons(chatId, messageId, isPhotoMessage, sb.toString(), rows);
