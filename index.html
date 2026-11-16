@@ -522,7 +522,6 @@
         </div>
         <div class="nav-tabs">
             <button class="tab-btn active" onclick="switchTab('products', this)">🛒 المنتجات والعروض</button>
-            <button class="tab-btn" onclick="switchTab('buyforme', this)">🛍 طلبات المواقع <span id="nav-bfm-badge" class="badge badge-warning" style="display:none;">0</span></button>
             <button class="tab-btn" onclick="switchTab('payments', this)">💳 خيارات الدفع</button>
             <button class="tab-btn" onclick="switchTab('topups', this)">💵 طلبات الشحن <span id="nav-topups-badge" class="badge badge-warning" style="display:none;">0</span></button>
             <button class="tab-btn" onclick="switchTab('orders', this)">📦 طلبات الشراء <span id="nav-pending-badge" class="badge badge-warning" style="display:none;">0</span></button>
@@ -604,32 +603,6 @@
                     <h2>🗂 قائمة المنتجات والعروض التابعة لها</h2>
                 </div>
                 <div id="products-container"></div>
-            </div>
-        </div>
-
-        <!-- ==================== 1.5 BUY FOR ME ORDERS SECTION ==================== -->
-        <div id="panel-buyforme" class="section-panel">
-            <div class="card">
-                <div class="card-header">
-                    <h2>🛍 طلبات الشراء مكان العميل (AliExpress / Temu / SHEIN)</h2>
-                </div>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>رقم الطلب</th>
-                                <th>العميل</th>
-                                <th>المنصة ورابط المنتج</th>
-                                <th>السعر + العمولة</th>
-                                <th>بيانات التوصيل والاستلام</th>
-                                <th>الدفع والإيصال</th>
-                                <th>الحالة</th>
-                                <th>تأكيد الشراء والتتبع / أو الرفض</th>
-                            </tr>
-                        </thead>
-                        <tbody id="bfm-tbody"></tbody>
-                    </table>
-                </div>
             </div>
         </div>
 
@@ -983,135 +956,11 @@
             topupsBadge.style.display = 'none';
         }
 
-        const bfmBadge = document.getElementById('nav-bfm-badge');
-        if (data.stats.pendingBfmCount > 0) {
-            bfmBadge.style.display = 'inline-flex';
-            bfmBadge.textContent = data.stats.pendingBfmCount;
-        } else {
-            bfmBadge.style.display = 'none';
-        }
-
         renderProducts(data.products);
-        renderBuyForMeOrders(data.buyForMeOrders);
         renderPaymentMethods(data.paymentMethods);
         renderTopups(data.topups);
         renderOrders(data.orders);
         renderUsers(data.users);
-    }
-
-    // ==================== 1.5 RENDER BUY FOR ME ORDERS ====================
-    function renderBuyForMeOrders(list) {
-        const tbody = document.getElementById('bfm-tbody');
-        if (!list || list.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-secondary); padding:24px;">لا توجد طلبات شراء من المواقع حتى الآن</td></tr>`;
-            return;
-        }
-
-        tbody.innerHTML = list.map(b => {
-            const isPending = b.status === 'PENDING';
-            const badge = b.status === 'PENDING'
-                ? `<span class="badge badge-warning">⏳ PENDING (معلق)</span>`
-                : (b.status === 'COMPLETED'
-                    ? `<span class="badge badge-success">✅ تم الشراء</span>`
-                    : `<span class="badge badge-danger">❌ مرفوض</span>`);
-
-            const shippingHtml = `
-                <div style="font-size:12px; line-height:1.6; min-width:210px;">
-                    🌍 <b>الدولة:</b> ${escapeHtml(b.country)}<br>
-                    📍 <b>الولاية:</b> ${escapeHtml(b.state)} | 🏙 ${escapeHtml(b.city)}<br>
-                    📮 <b>الرمز البريدي:</b> <code>${escapeHtml(b.postalCode)}</code><br>
-                    🏠 <b>العنوان:</b> ${escapeHtml(b.address)}<br>
-                    📞 <b>الهاتف:</b> <code>${escapeHtml(b.phone)}</code>
-                </div>
-            `;
-
-            let payHtml = b.paymentType === 'WALLET'
-                ? `<span class="badge badge-info">💰 من المحفظة</span><br><strong style="color:var(--success);">$${Number(b.totalPrice).toFixed(2)}</strong>`
-                : `<span class="badge badge-warning">💳 ${escapeHtml(b.paymentMethodName)}</span><br><strong>${Number(b.amountToPay).toFixed(2)} ${escapeHtml(b.currency)}</strong>`;
-
-            if (b.proofImage) {
-                payHtml += `<br><a href="/${b.proofImage}" target="_blank"><img src="/${b.proofImage}" class="proof-thumb" style="margin-top:6px;"></a>`;
-            }
-            if (b.proofText) {
-                payHtml += `<div style="font-size:11px; margin-top:4px;"><code>${escapeHtml(b.proofText)}</code></div>`;
-            }
-
-            const actionHtml = isPending
-                ? `<div style="display:flex; flex-direction:column; gap:8px; min-width:270px;">
-                       <div style="display:flex; gap:6px;">
-                           <input type="text" id="bfm-track-${b.id}" placeholder="رقم التتبع أو تأكيد الشراء..." style="padding:7px 10px; font-size:12px;">
-                           <button class="btn btn-success btn-sm" onclick="completeBuyForMe(${b.id})">✅ تأكيد الشراء</button>
-                       </div>
-                       <div style="display:flex; gap:6px;">
-                           <input type="text" id="bfm-reject-${b.id}" placeholder="سبب الرفض (إن وجد)..." style="padding:7px 10px; font-size:12px;">
-                           <button class="btn btn-danger btn-sm" onclick="rejectBuyForMe(${b.id})">❌ رفض</button>
-                       </div>
-                   </div>`
-                : (b.status === 'REJECTED'
-                    ? `<small style="color:#f87171;">مرفوض: ${escapeHtml(b.rejectionReason)}</small>`
-                    : `<code>${escapeHtml(b.trackingInfo || 'تم التنفيذ')}</code>`);
-
-            return `
-                <tr>
-                    <td><code>#${b.id}</code><br><small style="color:var(--text-secondary); font-size:11px;">${b.createdAt}</small></td>
-                    <td><strong>${escapeHtml(b.userName)}</strong><br><code>${b.userId}</code></td>
-                    <td style="max-width:220px;">
-                        <span class="badge badge-info">🌐 ${escapeHtml(b.platform)}</span><br>
-                        <small style="color:var(--text-secondary);">${escapeHtml(b.productTitle || '')}</small><br>
-                        <a href="${escapeHtml(b.productUrl)}" target="_blank" style="color:var(--accent); font-size:12px; font-weight:700;">🔗 فتح رابط المنتج</a>
-                    </td>
-                    <td style="font-size:12px;">
-                        السعر: <code>$${Number(b.originalPrice).toFixed(2)}</code><br>
-                        العمولة: <code>+$${Number(b.commission).toFixed(2)}</code><br>
-                        <strong style="color:var(--success); font-size:14px;">الإجمالي: $${Number(b.totalPrice).toFixed(2)}</strong>
-                    </td>
-                    <td>${shippingHtml}</td>
-                    <td>${payHtml}</td>
-                    <td>${badge}</td>
-                    <td>${actionHtml}</td>
-                </tr>
-            `;
-        }).join('');
-    }
-
-    async function completeBuyForMe(orderId) {
-        const input = document.getElementById('bfm-track-' + orderId);
-        const trackingInfo = input ? input.value.trim() : '';
-        if (!trackingInfo) {
-            showToast('⚠️ يرجى كتابة رقم التتبع أو رسالة تأكيد الشراء للعميل');
-            return;
-        }
-        const res = await fetch('/api/buyforme/complete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId, trackingInfo })
-        });
-        const data = await res.json();
-        if (data.success) {
-            showToast('✅ تم تأكيد الشراء وإرسال رقم التتبع للعميل (وخصم الرصيد إن كان من المحفظة)!');
-            loadDashboard();
-        } else {
-            showToast('❌ ' + (data.message || 'فشل التأكيد'));
-        }
-    }
-
-    async function rejectBuyForMe(orderId) {
-        const input = document.getElementById('bfm-reject-' + orderId);
-        const reason = input ? input.value.trim() : '';
-        if (!reason) {
-            showToast('⚠️ يرجى كتابة سبب الرفض أولاً');
-            return;
-        }
-        const res = await fetch('/api/buyforme/reject', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId, reason })
-        });
-        const data = await res.json();
-        if (data.success) {
-            showToast('❌ تم رفض الطلب وإرسال السبب للعميل في التلغرام');
-            loadDashboard();
-        }
     }
 
     // ==================== 1. RENDER PRODUCTS & OFFERS ====================

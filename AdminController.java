@@ -77,13 +77,10 @@ public class AdminController {
         List<DatabaseManager.Product> products = db.getAllProducts();
         List<DatabaseManager.PaymentMethod> paymentMethods = db.getAllPaymentMethods();
         List<DatabaseManager.TopupRequest> topups = db.getAllTopupRequests();
-        List<DatabaseManager.BuyForMeOrder> bfmOrders = db.getAllBuyForMeOrders();
 
         long pendingOrdersCount = orders.stream().filter(o -> "PENDING".equals(o.status)).count();
         long pendingTopupsCount = topups.stream().filter(t -> "PENDING_ADMIN".equals(t.status)).count();
-        long pendingBfmCount = bfmOrders.stream().filter(b -> "PENDING".equals(b.status)).count();
-        double totalSales = orders.stream().filter(o -> "COMPLETED".equals(o.status)).mapToDouble(o -> o.price).sum()
-                + bfmOrders.stream().filter(b -> "COMPLETED".equals(b.status)).mapToDouble(b -> b.totalPrice).sum();
+        double totalSales = orders.stream().filter(o -> "COMPLETED".equals(o.status)).mapToDouble(o -> o.price).sum();
 
         Map<String, Object> data = new HashMap<>();
         data.put("users", users);
@@ -91,13 +88,11 @@ public class AdminController {
         data.put("products", products);
         data.put("paymentMethods", paymentMethods);
         data.put("topups", topups);
-        data.put("buyForMeOrders", bfmOrders);
         data.put("stats", Map.of(
                 "usersCount", users.size(),
                 "ordersCount", orders.size(),
                 "pendingCount", pendingOrdersCount,
                 "pendingTopupsCount", pendingTopupsCount,
-                "pendingBfmCount", pendingBfmCount,
                 "totalSales", totalSales
         ));
         return ResponseEntity.ok(data);
@@ -502,53 +497,7 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("success", deleted));
     }
 
-    // ==================== 6. BUY FOR ME ORDERS ====================
-
-    @PostMapping("/buyforme/complete")
-    public ResponseEntity<?> completeBuyForMeOrder(@RequestBody Map<String, Object> body, HttpSession session) {
-        if (!isAuthenticated(session)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        try {
-            int orderId = Integer.parseInt(String.valueOf(body.get("orderId")));
-            String trackingInfo = String.valueOf(body.getOrDefault("trackingInfo", "")).trim();
-            if (trackingInfo.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "يرجى إدخال رقم التتبع أو رسالة تأكيد الشراء"));
-            }
-            DatabaseManager.BuyForMeOrder completed = db.completeBuyForMeOrder(orderId, trackingInfo);
-            if (completed != null) {
-                bot.notifyBuyForMeCompleted(completed);
-                return ResponseEntity.ok(Map.of("success", true));
-            }
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "لم يتم العثور على الطلب"));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
-        }
-    }
-
-    @PostMapping("/buyforme/reject")
-    public ResponseEntity<?> rejectBuyForMeOrder(@RequestBody Map<String, Object> body, HttpSession session) {
-        if (!isAuthenticated(session)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        try {
-            int orderId = Integer.parseInt(String.valueOf(body.get("orderId")));
-            String reason = String.valueOf(body.getOrDefault("reason", "")).trim();
-            if (reason.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "يرجى كتابة سبب الرفض"));
-            }
-            DatabaseManager.BuyForMeOrder rejected = db.rejectBuyForMeOrder(orderId, reason);
-            if (rejected != null) {
-                bot.notifyBuyForMeRejected(rejected);
-                return ResponseEntity.ok(Map.of("success", true));
-            }
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "لم يتم العثور على الطلب"));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
-        }
-    }
-
-    // ==================== 7. HEALTH & BACKUP ====================
+    // ==================== 6. HEALTH & BACKUP ====================
 
     @GetMapping("/health")
     public ResponseEntity<?> healthCheck() {
