@@ -58,6 +58,35 @@ async def send_login_code(data):
         "codeType": code_type
     }))
 
+async def qr_login_flow(data):
+    api_id = int(data['apiId'])
+    api_hash = data['apiHash'].strip()
+    password = data.get('password', '').strip()
+
+    client = TelegramClient(StringSession(), api_id, api_hash)
+    await client.connect()
+    try:
+        qr = await client.qr_login()
+        print(json.dumps({"status": "qr", "url": qr.url}), flush=True)
+        try:
+            await qr.wait(timeout=120)
+        except SessionPasswordNeededError:
+            if not password:
+                print(json.dumps({
+                    "status": "error",
+                    "message": "حسابك محمي بكلمة مرور التحقق بخطوتين (2FA). اكتب كلمة مرور 2FA في الخانة ثم اضغط زر QR مرة أخرى."
+                }), flush=True)
+                return
+            await client.sign_in(password=password)
+
+        final_session = client.session.save()
+        print(json.dumps({"status": "success", "sessionString": final_session}), flush=True)
+    except asyncio.TimeoutError:
+        print(json.dumps({"status": "error", "message": "انتهت مهلة مسح رمز QR (دقيقتان). اضغط الزر للمحاولة مجدداً."}), flush=True)
+    finally:
+        await client.disconnect()
+
+
 async def verify_login_code(data):
     api_id = int(data['apiId'])
     api_hash = data['apiHash'].strip()
@@ -244,6 +273,8 @@ async def main():
             await send_login_code(data)
         elif action == 'verify_code':
             await verify_login_code(data)
+        elif action == 'qr_login':
+            await qr_login_flow(data)
         elif action == 'sync':
             await run_sync(data)
         else:

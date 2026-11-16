@@ -24,6 +24,11 @@ public class SourceWatcherService {
     private String pendingTempSession = "";
     private boolean syncInProgress = false;
 
+    // QR login live status
+    private volatile String qrStatusMessage = "";
+    private volatile boolean qrWaiting = false;
+    private Process activeQrProcess = null;
+
     public SourceWatcherService(DatabaseManager db, MohServiceBot bot) {
         this.db = db;
         this.bot = bot;
@@ -87,6 +92,88 @@ public class SourceWatcherService {
         boolean needPass = resp != null && resp.path("needPassword").asBoolean(false);
         String err = resp != null ? resp.path("message").asText("فشل التحقق من الكود") : "فشل التحقق";
         return Map.of("success", false, "needPassword", needPass, "message", err);
+    }
+
+    public Map<String, Object> startQrLogin(String apiId, String apiHash, String password2FA, int intervalMinutes) {
+        db.saveWatcherCredentials(apiId, apiHash, db.getWatcherConfig().phone, intervalMinutes);
+        if (activeQrProcess != null && activeQrProcess.isAlive()) {
+            activeQrProcess.destroyForcibly();
+        }
+        qrWaiting = true;
+        qrStatusMessage = "بانتظار مسح رمز QR من تطبيق تلغرام...";
+
+        try {
+            File scriptFile = new File("source_watcher.py");
+            String pythonCmd = System.getProperty("os.name").toLowerCase().contains("win") ? "python" : "python3";
+            ProcessBuilder pb = new ProcessBuilder(pythonCmd, scriptFile.getAbsolutePath());
+            pb.redirectErrorStream(false);
+            Process process = pb.start();
+            activeQrProcess = process;
+
+            Map<String, Object> req = Map.of(
+                    "action", "qr_login",
+                    "apiId", apiId.trim(),
+                    "apiHash", apiHash.trim(),
+                    "password", password2FA != null ? password2FA.trim() : ""
+            );
+            try (OutputStream os = process.getOutputStream()) {
+                os.write(objectMapper.writeValueAsBytes(req));
+                os.flush();
+            }
+
+            java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
+            String firstLine = reader.readLine();
+            if (firstLine == null) {
+                qrWaiting = false;
+                String stderr = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+                return Map.of("success", false, "message", stderr.isEmpty() ? "فشل توليد رمز QR" : stderr);
+            }
+
+            JsonNode firstJson = objectMapper.readTree(firstLine);
+            if (!"qr".equals(firstJson.path("status").asText())) {
+                qrWaiting = false;
+                return Map.of("success", false, "message", firstJson.path("message").asText("تعذر توليد رمز QR"));
+            }
+
+            String qrUrl = firstJson.path("url").asText("");
+
+            // Listen in background for scan completion
+            CompletableFuture.runAsync(() -> {
+                try {
+                    String secondLine = reader.readLine();
+                    if (secondLine != null) {
+                        JsonNode res = objectMapper.readTree(secondLine);
+                        if ("success".equals(res.path("status").asText())) {
+                            String sessionStr = res.path("sessionString").asText("");
+                            db.saveWatcherSession(sessionStr, true);
+                            qrStatusMessage = "✅ تم ربط حسابك بنجاح عبر QR Code!";
+                        } else {
+                            qrStatusMessage = "❌ " + res.path("message").asText("فشل الربط");
+                        }
+                    } else {
+                        qrStatusMessage = "❌ انتهت العملية";
+                    }
+                } catch (Exception e) {
+                    qrStatusMessage = "❌ " + e.getMessage();
+                } finally {
+                    qrWaiting = false;
+                }
+            });
+
+            return Map.of("success", true, "qrUrl", qrUrl);
+        } catch (Exception e) {
+            qrWaiting = false;
+            return Map.of("success", false, "message", e.getMessage());
+        }
+    }
+
+    public Map<String, Object> getQrStatus() {
+        return Map.of(
+                "waiting", qrWaiting,
+                "connected", db.getWatcherConfig().isConnected,
+                "message", qrStatusMessage
+        );
     }
 
     public synchronized Map<String, Object> runAutoSyncNow() {

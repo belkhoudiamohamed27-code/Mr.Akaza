@@ -547,6 +547,43 @@ public class AdminController {
         return ResponseEntity.ok(watcherService.verifyLoginCode(code, password));
     }
 
+    @PostMapping("/watcher/qr-start")
+    public ResponseEntity<?> watcherQrStart(@RequestBody Map<String, Object> body, HttpSession session) {
+        if (!isAuthenticated(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String apiId = String.valueOf(body.getOrDefault("apiId", "")).trim();
+        String apiHash = String.valueOf(body.getOrDefault("apiHash", "")).trim();
+        String password = String.valueOf(body.getOrDefault("password", "")).trim();
+        int interval = 15;
+        try {
+            interval = Integer.parseInt(String.valueOf(body.getOrDefault("intervalMinutes", "15")));
+        } catch (NumberFormatException ignored) {
+        }
+        if (apiId.isEmpty() || apiHash.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "يرجى إدخال API_ID و API_HASH أولاً"));
+        }
+        try {
+            long parsedApiId = Long.parseLong(apiId);
+            if (parsedApiId <= 0 || parsedApiId > 2147483647L) {
+                return ResponseEntity.badRequest().body(Map.of("success", false,
+                        "message", "قيمة API_ID غير صحيحة! يجب أن تكون رقم التطبيق (7 أو 8 أرقام) من موقع my.telegram.org."));
+            }
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false,
+                    "message", "قيمة API_ID يجب أن تكون أرقاماً فقط."));
+        }
+        return ResponseEntity.ok(watcherService.startQrLogin(apiId, apiHash, password, interval));
+    }
+
+    @GetMapping("/watcher/qr-status")
+    public ResponseEntity<?> watcherQrStatus(HttpSession session) {
+        if (!isAuthenticated(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(watcherService.getQrStatus());
+    }
+
     @PostMapping("/watcher/save-session")
     public ResponseEntity<?> watcherSaveSessionString(@RequestBody Map<String, Object> body, HttpSession session) {
         if (!isAuthenticated(session)) {
