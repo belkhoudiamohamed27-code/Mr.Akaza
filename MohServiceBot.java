@@ -27,6 +27,7 @@ public class MohServiceBot extends TelegramLongPollingBot {
 
     private final DatabaseManager db;
     private final TelegramEmojiService emojiService;
+    private final ProductPriceFetcherService priceFetcher;
 
     // 20-minute payment session timer scheduler
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
@@ -35,14 +36,39 @@ public class MohServiceBot extends TelegramLongPollingBot {
     public enum SessionType {
         ENTERING_TOPUP_AMOUNT,
         WAITING_TOPUP_PROOF,
-        WAITING_ORDER_PROOF
+        WAITING_ORDER_PROOF,
+        ENTERING_BFM_LINK,
+        ENTERING_BFM_MANUAL_PRICE,
+        BFM_COUNTRY,
+        BFM_STATE,
+        BFM_CITY,
+        BFM_POSTAL,
+        BFM_ADDRESS,
+        BFM_PHONE,
+        WAITING_BFM_PROOF
+    }
+
+    public static class BuyForMeDraft {
+        public String platform;
+        public String productUrl;
+        public String productTitle;
+        public double originalPrice;
+        public double commission = ProductPriceFetcherService.SERVICE_COMMISSION_USD;
+        public double totalPrice;
+        public String country;
+        public String state;
+        public String city;
+        public String postalCode;
+        public String address;
+        public String phone;
     }
 
     public static class UserPaymentSession {
         public SessionType type;
         public String currency; // "USD" or "DZD"
-        public int recordId;    // topupId or orderId
+        public int recordId;    // topupId, orderId, or bfmOrderId
         public ScheduledFuture<?> expiryTask;
+        public BuyForMeDraft bfmDraft;
 
         public UserPaymentSession(SessionType type, String currency, int recordId, ScheduledFuture<?> expiryTask) {
             this.type = type;
@@ -67,10 +93,11 @@ public class MohServiceBot extends TelegramLongPollingBot {
         }
     }
 
-    public MohServiceBot(DatabaseManager db, TelegramEmojiService emojiService) {
+    public MohServiceBot(DatabaseManager db, TelegramEmojiService emojiService, ProductPriceFetcherService priceFetcher) {
         super(BOT_TOKEN);
         this.db = db;
         this.emojiService = emojiService;
+        this.priceFetcher = priceFetcher;
     }
 
     @Override
@@ -138,19 +165,24 @@ public class MohServiceBot extends TelegramLongPollingBot {
             return;
         }
 
-        // Check active payment session (Entering topup amount OR sending payment proof)
+        // Check active payment / Buy-For-Me session
         UserPaymentSession session = userSessions.get(chatId);
         if (session != null) {
-            if (session.type == SessionType.ENTERING_TOPUP_AMOUNT) {
-                handleTopupAmountInput(chatId, text, session.currency);
-                return;
-            } else if (session.type == SessionType.WAITING_TOPUP_PROOF) {
-                handleTopupProofReceived(message, session);
-                return;
-            } else if (session.type == SessionType.WAITING_ORDER_PROOF) {
-                handleOrderProofReceived(message, session);
-                return;
+            switch (session.type) {
+                case ENTERING_TOPUP_AMOUNT -> handleTopupAmountInput(chatId, text, session.currency);
+                case WAITING_TOPUP_PROOF -> handleTopupProofReceived(message, session);
+                case WAITING_ORDER_PROOF -> handleOrderProofReceived(message, session);
+                case ENTERING_BFM_LINK -> handleBfmLinkInput(chatId, text, session);
+                case ENTERING_BFM_MANUAL_PRICE -> handleBfmManualPriceInput(chatId, text, session);
+                case BFM_COUNTRY -> handleBfmFormStep(chatId, text, session, SessionType.BFM_STATE, "📍 <b>الخطوة 2/6:</b> أدخل اسم <b>الولاية</b>:");
+                case BFM_STATE -> handleBfmFormStep(chatId, text, session, SessionType.BFM_CITY, "🏙 <b>الخطوة 3/6:</b> أدخل اسم <b>المدينة / البلدية</b>:");
+                case BFM_CITY -> handleBfmFormStep(chatId, text, session, SessionType.BFM_POSTAL, "📮 <b>الخطوة 4/6:</b> أدخل <b>الرمز البريدي</b>:");
+                case BFM_POSTAL -> handleBfmFormStep(chatId, text, session, SessionType.BFM_ADDRESS, "🏠 <b>الخطوة 5/6:</b> أدخل <b>عنوان السكن بالتفصيل</b>:");
+                case BFM_ADDRESS -> handleBfmFormStep(chatId, text, session, SessionType.BFM_PHONE, "📞 <b>الخطوة 6/6:</b> أدخل <b>رقم الهاتف</b> (للاتصال بك فور وصول منتجك):");
+                case BFM_PHONE -> handleBfmPhoneAndShowSummary(chatId, text, session);
+                case WAITING_BFM_PROOF -> handleBfmProofReceived(message, session);
             }
+            return;
         }
     }
 
@@ -682,8 +714,45 @@ public class MohServiceBot extends TelegramLongPollingBot {
                 answerCallback(callbackQuery.getId(), null, false);
                 showSupport(chatId, messageId, isPhotoMessage);
             }
+            case "buy_for_me" -> {
+                clearUserSession(chatId);
+                answerCallback(callbackQuery.getId(), null, false);
+                startBuyForMeFlow(chatId, messageId, isPhotoMessage);
+            }
+            case "bfm_start_form" -> {
+                answerCallback(callbackQuery.getId(), null, false);
+                UserPaymentSession s = userSessions.get(chatId);
+                if (s != null && s.bfmDraft != null) {
+                    s.type = SessionType.BFM_COUNTRY;
+                    editOrReplaceWithHtml(chatId, messageId, isPhotoMessage,
+                            "📋 <b>استمارة بيانات التوصيل والاستلام (إجبارية قبل الدفع):</b>\n\n" +
+                            "🌍 <b>الخطوة 1/6:</b> أدخل اسم <b>الدولة</b> (مثال: الجزائر):",
+                            getCancelPaymentKeyboard());
+                } else {
+                    startBuyForMeFlow(chatId, messageId, isPhotoMessage);
+                }
+            }
+            case "bfm_pay_wallet" -> {
+                processBuyForMeWalletPayment(callbackQuery, chatId, messageId, isPhotoMessage);
+            }
+            case "bfm_pay_direct" -> {
+                answerCallback(callbackQuery.getId(), null, false);
+                showBfmDirectCurrencyChoice(chatId, messageId, isPhotoMessage);
+            }
+            case "bfm_curr_USD" -> {
+                answerCallback(callbackQuery.getId(), null, false);
+                showBfmDirectPaymentMethods(chatId, messageId, isPhotoMessage, "USD");
+            }
+            case "bfm_curr_DZD" -> {
+                answerCallback(callbackQuery.getId(), null, false);
+                showBfmDirectPaymentMethods(chatId, messageId, isPhotoMessage, "DZD");
+            }
             default -> {
-                if (data.startsWith("cat_")) {
+                if (data.startsWith("bfm_pm_")) {
+                    answerCallback(callbackQuery.getId(), null, false);
+                    int methodId = Integer.parseInt(data.substring(7));
+                    startBfmDirectOrderPayment(chatId, messageId, isPhotoMessage, methodId);
+                } else if (data.startsWith("cat_")) {
                     answerCallback(callbackQuery.getId(), null, false);
                     showCategoryProducts(chatId, messageId, isPhotoMessage, data.substring(4));
                 } else if (data.startsWith("prod_")) {
@@ -734,6 +803,7 @@ public class MohServiceBot extends TelegramLongPollingBot {
                "متجرك المتكامل لشراء المنتجات والاشتراكات الرقمية بأفضل الأسعار وبتسليم فوري وآلي.\n\n" +
                "<blockquote>" +
                "🛒 <b>المنتجات:</b> استعرض الفئات والباقات المتوفرة واشترِ بضغطة زر.\n" +
+               "🛍 <b>اطلب لي:</b> الشراء نيابةً عنك من AliExpress و Temu و SHEIN والتوصيل لعنوانك.\n" +
                "👤 <b>حسابي:</b> عرض معلومات حسابك، المعرف الخاص بك، ورصيدك.\n" +
                "📦 <b>طلباتي:</b> سجل مشترياتك السابقة وحالة طلباتك الحالية.\n" +
                "💳 <b>المحفظة:</b> شحن رصيدك بالدولار أو الدينار الجزائري بسهولة.\n" +
@@ -749,6 +819,11 @@ public class MohServiceBot extends TelegramLongPollingBot {
         InlineKeyboardButton btnProducts = new InlineKeyboardButton("🛒 المنتجات");
         btnProducts.setCallbackData("products");
         row1.add(btnProducts);
+
+        List<InlineKeyboardButton> rowBfm = new ArrayList<>();
+        InlineKeyboardButton btnBfm = new InlineKeyboardButton("🛍 اطلب لي (AliExpress / Temu / SHEIN)");
+        btnBfm.setCallbackData("buy_for_me");
+        rowBfm.add(btnBfm);
 
         List<InlineKeyboardButton> row2 = new ArrayList<>();
         InlineKeyboardButton btnAccount = new InlineKeyboardButton("👤 حسابي");
@@ -767,6 +842,7 @@ public class MohServiceBot extends TelegramLongPollingBot {
         row3.add(btnSupport);
 
         rows.add(row1);
+        rows.add(rowBfm);
         rows.add(row2);
         rows.add(row3);
 
@@ -1268,6 +1344,412 @@ public class MohServiceBot extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             System.err.println("Error answering callback: " + e.getMessage());
         }
+    }
+
+    // ==================== BUY FOR ME (AliExpress / Temu / SHEIN) ====================
+
+    private InlineKeyboardMarkup getCancelPaymentKeyboard() {
+        List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+        List<InlineKeyboardButton> r = new ArrayList<>();
+        InlineKeyboardButton cancelBtn = new InlineKeyboardButton("❌ إلغاء العملية");
+        cancelBtn.setCallbackData("cancel_payment");
+        r.add(cancelBtn);
+        rows.add(r);
+        return new InlineKeyboardMarkup(rows);
+    }
+
+    private void startBuyForMeFlow(long chatId, int messageId, boolean isPhotoMessage) {
+        clearUserSession(chatId);
+        UserPaymentSession session = new UserPaymentSession(SessionType.ENTERING_BFM_LINK, "USD", 0, null);
+        session.bfmDraft = new BuyForMeDraft();
+        userSessions.put(chatId, session);
+
+        String text = "🛍 <b>خدمة الشراء بالنيابة عنك (AliExpress / Temu / SHEIN)</b>\n\n" +
+                      "<blockquote>أرسل الآن <b>رابط المنتج</b> الذي ترغب في شرائه من إحدى المنصات التالية:\n" +
+                      "• AliExpress\n" +
+                      "• Temu\n" +
+                      "• SHEIN\n\n" +
+                      "💡 سيتحقق البوت من السعر تلقائياً ويضيف عمولة الخدمة الثابتة (<code>$0.50</code>) ثم يطلب منك عنوان الاستلام قبل الدفع.</blockquote>";
+
+        editOrReplaceWithHtml(chatId, messageId, isPhotoMessage, text, getCancelPaymentKeyboard());
+    }
+
+    private void handleBfmLinkInput(long chatId, String text, UserPaymentSession session) {
+        String url = priceFetcher.extractFirstUrl(text);
+        if (url == null) {
+            sendHtmlMessage(chatId, "⚠️ <b>يرجى إرسال رابط صحيح يبدأ بـ http:// أو https:// للمنتج من AliExpress أو Temu أو SHEIN:</b>", getCancelPaymentKeyboard());
+            return;
+        }
+        String platform = priceFetcher.detectPlatform(url);
+        if (platform == null) {
+            sendHtmlMessage(chatId, "⚠️ <b>الرابط غير مدعوم!</b>\nيرجى إرسال رابط من منصات <b>AliExpress</b> أو <b>Temu</b> أو <b>SHEIN</b> فقط.", getCancelPaymentKeyboard());
+            return;
+        }
+
+        sendHtmlMessage(chatId, "🔍 <b>جارٍ فحص الرابط والتحقق من سعر المنتج في " + escapeHtml(platform) + "...</b>", null);
+
+        ProductPriceFetcherService.FetchResult res = priceFetcher.fetchProductPrice(url);
+        BuyForMeDraft draft = session.bfmDraft != null ? session.bfmDraft : new BuyForMeDraft();
+        draft.platform = platform;
+        draft.productUrl = url;
+        draft.productTitle = res.productTitle;
+        session.bfmDraft = draft;
+
+        if (res.priceFound && res.originalPriceUsd > 0) {
+            draft.originalPrice = res.originalPriceUsd;
+            draft.commission = ProductPriceFetcherService.SERVICE_COMMISSION_USD;
+            draft.totalPrice = Math.round((draft.originalPrice + draft.commission) * 100.0) / 100.0;
+            showBfmPriceQuote(chatId, draft);
+        } else {
+            session.type = SessionType.ENTERING_BFM_MANUAL_PRICE;
+            String titleLine = !draft.productTitle.isEmpty() ? "📦 <b>المنتج:</b> " + escapeHtml(draft.productTitle) + "\n\n" : "";
+            sendHtmlMessage(chatId,
+                    "🌐 <b>المنصة:</b> " + escapeHtml(platform) + "\n" +
+                    titleLine +
+                    "<blockquote>لم نتمكن من قراءة السعر تلقائياً بسبب حماية الموقع أو تعدد المقاسات.\n\n" +
+                    "✍️ <b>أدخل السعر الظاهر للمنتج بالدولار ($)</b> (مثال: <code>12.50</code>) وسنحسب لك السعر الإجمالي مع العمولة فوراً:</blockquote>",
+                    getCancelPaymentKeyboard());
+        }
+    }
+
+    private void handleBfmManualPriceInput(long chatId, String text, UserPaymentSession session) {
+        double price;
+        try {
+            price = Double.parseDouble(text.replace(",", ".").replace("$", "").trim());
+            if (price <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException e) {
+            sendHtmlMessage(chatId, "⚠️ <b>يرجى إدخال سعر رقمي صحيح بالدولار (مثال: <code>9.99</code>):</b>", getCancelPaymentKeyboard());
+            return;
+        }
+        BuyForMeDraft draft = session.bfmDraft;
+        draft.originalPrice = Math.round(price * 100.0) / 100.0;
+        draft.commission = ProductPriceFetcherService.SERVICE_COMMISSION_USD;
+        draft.totalPrice = Math.round((draft.originalPrice + draft.commission) * 100.0) / 100.0;
+        showBfmPriceQuote(chatId, draft);
+    }
+
+    private void showBfmPriceQuote(long chatId, BuyForMeDraft draft) {
+        double totalDzd = Math.round(draft.totalPrice * DatabaseManager.DZD_EXCHANGE_RATE);
+        String titleLine = !draft.productTitle.isEmpty() ? "📦 <b>المنتج:</b> " + escapeHtml(draft.productTitle) + "\n" : "";
+
+        String msg = "✅ <b>تم تسعير طلبك بنجاح!</b>\n\n" +
+                     "🌐 <b>المنصة:</b> " + escapeHtml(draft.platform) + "\n" +
+                     titleLine +
+                     "💵 <b>سعر المنتج:</b> <code>$" + formatMoney(draft.originalPrice) + " USD</code>\n" +
+                     "⚡ <b>عمولة الخدمة:</b> <code>$" + formatMoney(draft.commission) + " USD</code>\n" +
+                     "━━━━━━━━━━━━━━\n" +
+                     "💰 <b>السعر الإجمالي:</b> <code>$" + formatMoney(draft.totalPrice) + " USD</code>\n" +
+                     "🇩🇿 <b>ما يعادله بالدينار:</b> <code>" + formatMoney(totalDzd) + " DZD</code>\n\n" +
+                     "<blockquote>قبل الدفع، يرجى ملء استمارة عنوان التوصيل والاستلام بدقة ليتم شحن المنتج إليك والاتصال بك فور وصوله.</blockquote>";
+
+        List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+        List<InlineKeyboardButton> r1 = new ArrayList<>();
+        InlineKeyboardButton contBtn = new InlineKeyboardButton("📋 متابعة وملء استمارة التوصيل");
+        contBtn.setCallbackData("bfm_start_form");
+        r1.add(contBtn);
+
+        List<InlineKeyboardButton> r2 = new ArrayList<>();
+        InlineKeyboardButton cancelBtn = new InlineKeyboardButton("❌ إلغاء");
+        cancelBtn.setCallbackData("cancel_payment");
+        r2.add(cancelBtn);
+
+        rows.add(r1);
+        rows.add(r2);
+
+        sendHtmlMessage(chatId, msg, new InlineKeyboardMarkup(rows));
+    }
+
+    private void handleBfmFormStep(long chatId, String text, UserPaymentSession session, SessionType nextStep, String nextPrompt) {
+        String val = text.trim();
+        if (val.isEmpty()) {
+            sendHtmlMessage(chatId, "⚠️ <b>هذا الحقل مطلوب، يرجى كتابة قيمة صحيحة:</b>", getCancelPaymentKeyboard());
+            return;
+        }
+        BuyForMeDraft d = session.bfmDraft;
+        switch (session.type) {
+            case BFM_COUNTRY -> d.country = val;
+            case BFM_STATE -> d.state = val;
+            case BFM_CITY -> d.city = val;
+            case BFM_POSTAL -> d.postalCode = val;
+            case BFM_ADDRESS -> d.address = val;
+            default -> {}
+        }
+        session.type = nextStep;
+        sendHtmlMessage(chatId, nextPrompt, getCancelPaymentKeyboard());
+    }
+
+    private void handleBfmPhoneAndShowSummary(long chatId, String text, UserPaymentSession session) {
+        String phone = text.trim();
+        if (phone.length() < 6) {
+            sendHtmlMessage(chatId, "⚠️ <b>يرجى إدخال رقم هاتف صحيح للتواصل معك عند وصول الطلب:</b>", getCancelPaymentKeyboard());
+            return;
+        }
+        BuyForMeDraft d = session.bfmDraft;
+        d.phone = phone;
+        session.type = SessionType.WAITING_BFM_PROOF; // Ready for payment selection
+
+        double totalDzd = Math.round(d.totalPrice * DatabaseManager.DZD_EXCHANGE_RATE);
+        String summary = "📋 <b>ملخص الطلب وبيانات التوصيل:</b>\n\n" +
+                         "🌐 <b>المنصة:</b> " + escapeHtml(d.platform) + "\n" +
+                         "💰 <b>الإجمالي للدفع:</b> <code>$" + formatMoney(d.totalPrice) + " USD</code> (<code>" + formatMoney(totalDzd) + " DZD</code>)\n\n" +
+                         "📍 <b>بيانات الاستلام:</b>\n" +
+                         "<blockquote>" +
+                         "🌍 <b>الدولة:</b> " + escapeHtml(d.country) + "\n" +
+                         "📍 <b>الولاية:</b> " + escapeHtml(d.state) + "\n" +
+                         "🏙 <b>المدينة:</b> " + escapeHtml(d.city) + "\n" +
+                         "📮 <b>الرمز البريدي:</b> " + escapeHtml(d.postalCode) + "\n" +
+                         "🏠 <b>عنوان السكن:</b> " + escapeHtml(d.address) + "\n" +
+                         "📞 <b>رقم الهاتف:</b> <code>" + escapeHtml(d.phone) + "</code>" +
+                         "</blockquote>\n\n" +
+                         "💳 <b>اختر طريقة الدفع لإرسال الطلب:</b>";
+
+        List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+        List<InlineKeyboardButton> r1 = new ArrayList<>();
+        InlineKeyboardButton wBtn = new InlineKeyboardButton("💰 الدفع من رصيد المحفظة ($" + formatMoney(d.totalPrice) + ")");
+        wBtn.setCallbackData("bfm_pay_wallet");
+        r1.add(wBtn);
+
+        List<InlineKeyboardButton> r2 = new ArrayList<>();
+        InlineKeyboardButton dBtn = new InlineKeyboardButton("💳 الدفع المباشر (USD / DZD)");
+        dBtn.setCallbackData("bfm_pay_direct");
+        r2.add(dBtn);
+
+        List<InlineKeyboardButton> r3 = new ArrayList<>();
+        InlineKeyboardButton cancelBtn = new InlineKeyboardButton("❌ إلغاء");
+        cancelBtn.setCallbackData("cancel_payment");
+        r3.add(cancelBtn);
+
+        rows.add(r1);
+        rows.add(r2);
+        rows.add(r3);
+
+        sendHtmlMessage(chatId, summary, new InlineKeyboardMarkup(rows));
+    }
+
+    private void processBuyForMeWalletPayment(CallbackQuery callbackQuery, long chatId, int messageId, boolean isPhotoMessage) {
+        UserPaymentSession session = userSessions.get(chatId);
+        if (session == null || session.bfmDraft == null) {
+            answerCallback(callbackQuery.getId(), "⚠️ انتهت الجلسة، يرجى البدء من جديد.", true);
+            return;
+        }
+        BuyForMeDraft d = session.bfmDraft;
+        DatabaseManager.User user = db.getOrCreateUser(chatId, null, null);
+        if (user.balance < d.totalPrice) {
+            answerCallback(callbackQuery.getId(),
+                    "⚠️ رصيد محفظتك غير كافٍ!\n" +
+                    "الإجمالي المطلوب: $" + formatMoney(d.totalPrice) + "\n" +
+                    "رصيدك الحالي: $" + formatMoney(user.balance), true);
+            return;
+        }
+
+        int orderId = db.createBuyForMeOrder(
+                chatId, d.platform, d.productUrl, d.productTitle,
+                d.originalPrice, d.commission, d.totalPrice,
+                d.country, d.state, d.city, d.postalCode, d.address, d.phone,
+                "WALLET", "USD", d.totalPrice, "رصيد المحفظة", "PENDING"
+        );
+        clearUserSession(chatId);
+
+        if (orderId != -1) {
+            answerCallback(callbackQuery.getId(), "✅ تم استلام طلبك بنجاح!", false);
+            editOrReplaceWithHtml(chatId, messageId, isPhotoMessage,
+                    "⏳ <b>تم استلام طلب الشراء من " + escapeHtml(d.platform) + " بنجاح!</b>\n\n" +
+                    "🧾 <b>رقم الطلب:</b> <code>#" + orderId + "</code>\n" +
+                    "💰 <b>الإجمالي:</b> <code>$" + formatMoney(d.totalPrice) + " USD</code> (من رصيد المحفظة)\n\n" +
+                    "<blockquote>لقد استلمنا طلبك وعنوان توصيلك، سنقوم بمراجعة الطلب وشرائه وإرسال رقم التتبع لك في أقرب وقت ممكن ❤️</blockquote>",
+                    getBackToMainKeyboard());
+        } else {
+            answerCallback(callbackQuery.getId(), "❌ حدث خطأ أثناء حفظ الطلب.", true);
+        }
+    }
+
+    private void showBfmDirectCurrencyChoice(long chatId, int messageId, boolean isPhotoMessage) {
+        UserPaymentSession session = userSessions.get(chatId);
+        if (session == null || session.bfmDraft == null) {
+            editOrReplaceWithHtml(chatId, messageId, isPhotoMessage, "⚠️ انتهت الجلسة، يرجى البدء من جديد.", getBackToMainKeyboard());
+            return;
+        }
+        BuyForMeDraft d = session.bfmDraft;
+        double totalDzd = Math.round(d.totalPrice * DatabaseManager.DZD_EXCHANGE_RATE);
+
+        String text = "💳 <b>اختر عملة الدفع المباشر:</b>\n\n" +
+                      "💵 <b>بالدولار:</b> <code>$" + formatMoney(d.totalPrice) + " USD</code>\n" +
+                      "🇩🇿 <b>بالدينار الجزائري:</b> <code>" + formatMoney(totalDzd) + " DZD</code>";
+
+        List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+        List<InlineKeyboardButton> r1 = new ArrayList<>();
+        InlineKeyboardButton b1 = new InlineKeyboardButton("💵 الدولار ($" + formatMoney(d.totalPrice) + " USD)");
+        b1.setCallbackData("bfm_curr_USD");
+        r1.add(b1);
+
+        List<InlineKeyboardButton> r2 = new ArrayList<>();
+        InlineKeyboardButton b2 = new InlineKeyboardButton("🇩🇿 الدينار (" + formatMoney(totalDzd) + " DZD)");
+        b2.setCallbackData("bfm_curr_DZD");
+        r2.add(b2);
+
+        List<InlineKeyboardButton> r3 = new ArrayList<>();
+        InlineKeyboardButton cBtn = new InlineKeyboardButton("❌ إلغاء");
+        cBtn.setCallbackData("cancel_payment");
+        r3.add(cBtn);
+
+        rows.add(r1);
+        rows.add(r2);
+        rows.add(r3);
+        editOrReplaceWithHtml(chatId, messageId, isPhotoMessage, text, new InlineKeyboardMarkup(rows));
+    }
+
+    private void showBfmDirectPaymentMethods(long chatId, int messageId, boolean isPhotoMessage, String currency) {
+        UserPaymentSession session = userSessions.get(chatId);
+        if (session == null || session.bfmDraft == null) {
+            editOrReplaceWithHtml(chatId, messageId, isPhotoMessage, "⚠️ انتهت الجلسة، يرجى البدء من جديد.", getBackToMainKeyboard());
+            return;
+        }
+        List<DatabaseManager.PaymentMethod> methods = db.getPaymentMethodsByCurrency(currency);
+        if (methods.isEmpty()) {
+            editOrReplaceWithHtml(chatId, messageId, isPhotoMessage,
+                    "⚠️ <b>لا توجد وسائل دفع متاحة حالياً لعملة " + escapeHtml(currency) + ".</b>",
+                    getBackToMainKeyboard());
+            return;
+        }
+
+        BuyForMeDraft d = session.bfmDraft;
+        double amountToPay = "DZD".equalsIgnoreCase(currency)
+                ? Math.round(d.totalPrice * DatabaseManager.DZD_EXCHANGE_RATE)
+                : d.totalPrice;
+        String currLabel = "DZD".equalsIgnoreCase(currency) ? "DZD (د.ج)" : "USD ($)";
+
+        String text = "💳 <b>اختر وسيلة الدفع لإتمام طلبك:</b>\n\n" +
+                      "💰 <b>المبلغ المطلوب دفعه:</b> <code>" + formatMoney(amountToPay) + " " + currLabel + "</code>";
+
+        List<List<RichButton>> rows = new ArrayList<>();
+        for (DatabaseManager.PaymentMethod pm : methods) {
+            String emojiId = (pm.customEmojiId != null && !pm.customEmojiId.isBlank()) ? pm.customEmojiId.trim() : null;
+            List<RichButton> r = new ArrayList<>();
+            r.add(new RichButton("💳 " + pm.name, "bfm_pm_" + pm.id, emojiId, null));
+            rows.add(r);
+        }
+        List<RichButton> backRow = new ArrayList<>();
+        backRow.add(new RichButton("🔙 رجوع لاختيار العملة", "bfm_pay_direct", null, null));
+        rows.add(backRow);
+
+        editOrReplaceWithRichButtons(chatId, messageId, isPhotoMessage, text, rows);
+    }
+
+    private void startBfmDirectOrderPayment(long chatId, int messageId, boolean isPhotoMessage, int methodId) {
+        UserPaymentSession session = userSessions.get(chatId);
+        DatabaseManager.PaymentMethod pm = db.getPaymentMethodById(methodId);
+        if (session == null || session.bfmDraft == null || pm == null) {
+            editOrReplaceWithHtml(chatId, messageId, isPhotoMessage, "⚠️ انتهت الجلسة أو وسيلة الدفع غير متوفرة.", getBackToMainKeyboard());
+            return;
+        }
+
+        BuyForMeDraft d = session.bfmDraft;
+        double amountToPay = "DZD".equalsIgnoreCase(pm.currency)
+                ? Math.round(d.totalPrice * DatabaseManager.DZD_EXCHANGE_RATE)
+                : d.totalPrice;
+
+        int orderId = db.createBuyForMeOrder(
+                chatId, d.platform, d.productUrl, d.productTitle,
+                d.originalPrice, d.commission, d.totalPrice,
+                d.country, d.state, d.city, d.postalCode, d.address, d.phone,
+                "DIRECT", pm.currency, amountToPay, pm.name, "WAITING_PROOF"
+        );
+        if (orderId == -1) {
+            editOrReplaceWithHtml(chatId, messageId, isPhotoMessage, "❌ تعذر إنشاء الطلب.", getBackToMainKeyboard());
+            return;
+        }
+
+        clearUserSession(chatId);
+        ScheduledFuture<?> task = scheduler.schedule(() -> {
+            DatabaseManager.BuyForMeOrder expired = db.expireBuyForMeIfWaiting(orderId);
+            if (expired != null) {
+                userSessions.remove(chatId);
+                sendHtmlMessage(chatId,
+                        "⏰ <b>انتهت مهلة الـ 20 دقيقة!</b>\n\n" +
+                        "تم إلغاء طلب الشراء رقم <code>#" + orderId + "</code> تلقائياً بسبب انتهاء الوقت دون إرسال إثبات الدفع.",
+                        getBackToMainKeyboard());
+            }
+        }, 20, TimeUnit.MINUTES);
+
+        UserPaymentSession waitSession = new UserPaymentSession(SessionType.WAITING_BFM_PROOF, pm.currency, orderId, task);
+        userSessions.put(chatId, waitSession);
+
+        String currLabel = "DZD".equalsIgnoreCase(pm.currency) ? "د.ج (DZD)" : "$ (USD)";
+        String text = "🧾 <b>طلب شراء من " + escapeHtml(d.platform) + " رقم:</b> <code>#" + orderId + "</code>\n" +
+                      "💳 <b>وسيلة الدفع:</b> " + escapeHtml(pm.name) + "\n" +
+                      "💰 <b>المبلغ الواجب دفعه:</b> <code>" + formatMoney(amountToPay) + " " + currLabel + "</code>\n" +
+                      "⏳ <b>مهلة الإرسال:</b> <code>20 دقيقة</code>\n\n" +
+                      "⚠️ <b>تحذير هام:</b>\n" +
+                      "<blockquote>يرجى إتمام الدفع وإرسال الإثبات خلال <b>20 دقيقة</b>، وفي حالة انتهاء الوقت ستُلغى العملية تلقائياً!</blockquote>\n\n" +
+                      "📋 <b>الإجراءات ومعلومات الحساب للدفع:</b>\n" +
+                      "<blockquote>" + escapeHtml(pm.instructions) + "</blockquote>\n\n" +
+                      "📸 <b>بعد إتمام الدفع، أرسل الآن هنا صورة وصل الدفع (الفاتورة / الإيصال) أو رقم العملية:</b>";
+
+        editOrReplaceWithHtml(chatId, messageId, isPhotoMessage, text, getCancelPaymentKeyboard());
+    }
+
+    private void handleBfmProofReceived(Message message, UserPaymentSession session) {
+        long chatId = message.getChatId();
+        String proofText = message.hasText() ? message.getText().trim() : (message.getCaption() != null ? message.getCaption().trim() : "");
+        String proofImage = "";
+
+        if (message.hasPhoto()) {
+            List<PhotoSize> photos = message.getPhoto();
+            PhotoSize largest = photos.get(photos.size() - 1);
+            proofImage = emojiService.downloadTelegramFileToUploads(largest.getFileId(), "bfm_" + session.recordId);
+        } else if (message.hasDocument()) {
+            proofImage = emojiService.downloadTelegramFileToUploads(message.getDocument().getFileId(), "bfm_" + session.recordId);
+        }
+
+        if (proofText.isEmpty() && proofImage.isEmpty()) {
+            sendHtmlMessage(chatId, "⚠️ <b>يرجى إرسال صورة الفاتورة/الإيصال أو كتابة رقم/بيانات عملية الدفع:</b>", null);
+            return;
+        }
+
+        clearUserSession(chatId);
+        boolean saved = db.attachBuyForMeProof(session.recordId, proofText, proofImage);
+        if (saved) {
+            sendHtmlMessage(chatId,
+                    "✅ <b>تم استلام طلبك وإثبات الدفع بنجاح!</b>\n\n" +
+                    "🧾 <b>رقم الطلب:</b> <code>#" + session.recordId + "</code>\n" +
+                    "<blockquote>سنقوم بالتحقق من الدفع وشراء المنتج وإرسال تفاصيل الطلب والتتبع لك في أقرب وقت ممكن ❤️</blockquote>",
+                    getBackToMainKeyboard());
+        } else {
+            sendHtmlMessage(chatId, "⚠️ <b>انتهت صلاحية هذا الطلب أو تم إلغاؤه مسبقاً.</b>", getBackToMainKeyboard());
+        }
+    }
+
+    public void notifyBuyForMeCompleted(DatabaseManager.BuyForMeOrder order) {
+        if (order == null) return;
+        DatabaseManager.User user = db.getOrCreateUser(order.userId, null, null);
+        String payNote = "WALLET".equalsIgnoreCase(order.paymentType)
+                ? "💰 <b>تم خصم:</b> <code>$" + formatMoney(order.totalPrice) + "</code> من محفظتك (رصيدك المتبقي: <code>$" + formatMoney(user.balance) + "</code>)\n"
+                : "💳 <b>طريقة الدفع:</b> " + escapeHtml(order.paymentMethodName) + "\n";
+
+        String msg = "✅ <b>تم تأكيد طلبك وشراء المنتج بنجاح!</b>\n\n" +
+                     "🧾 <b>رقم الطلب:</b> <code>#" + order.id + "</code>\n" +
+                     "🌐 <b>المنصة:</b> " + escapeHtml(order.platform) + "\n" +
+                     payNote + "\n" +
+                     "🚚 <b>معلومات التتبع / ملاحظة الإدارة:</b>\n" +
+                     "<blockquote><code>" + escapeHtml(order.trackingInfo) + "</code></blockquote>\n\n" +
+                     "📞 سيتم الاتصال بك على الرقم <code>" + escapeHtml(order.phone) + "</code> فور وصول طلبك!";
+        sendHtmlMessage(order.userId, msg, getBackToMainKeyboard());
+    }
+
+    public void notifyBuyForMeRejected(DatabaseManager.BuyForMeOrder order) {
+        if (order == null) return;
+        String reason = (order.rejectionReason != null && !order.rejectionReason.isBlank())
+                ? escapeHtml(order.rejectionReason)
+                : "تعذر تنفيذ الطلب";
+        String walletNote = "WALLET".equalsIgnoreCase(order.paymentType)
+                ? "\n💰 <i>لم يتم خصم أي مبلغ من رصيد محفظتك.</i>\n"
+                : "";
+        String msg = "❌ <b>تم رفض طلب الشراء رقم #" + order.id + " (" + escapeHtml(order.platform) + ")</b>\n" +
+                     walletNote + "\n" +
+                     "📌 <b>السبب:</b>\n" +
+                     "<blockquote>" + reason + "</blockquote>\n\n" +
+                     "💡 <i>في حالة ترى أنه حدث خطأ تواصل مع الدعم الفني.</i>";
+        sendHtmlMessage(order.userId, msg, getSupportAndMainKeyboard());
     }
 
     private String formatMoney(double amount) {

@@ -203,6 +203,66 @@ public class DatabaseManager {
         }
     }
 
+    public static class BuyForMeOrder {
+        public int id;
+        public long userId;
+        public String userName;
+        public String platform;
+        public String productUrl;
+        public String productTitle;
+        public double originalPrice;
+        public double commission;
+        public double totalPrice;
+        public String country;
+        public String state;
+        public String city;
+        public String postalCode;
+        public String address;
+        public String phone;
+        public String paymentType; // WALLET or DIRECT
+        public String currency;    // USD or DZD
+        public double amountToPay;
+        public String paymentMethodName;
+        public String proofText;
+        public String proofImage;
+        public String trackingInfo;
+        public String status; // WAITING_PROOF, PENDING, COMPLETED, REJECTED, EXPIRED
+        public String rejectionReason;
+        public String createdAt;
+
+        public BuyForMeOrder(int id, long userId, String userName, String platform, String productUrl, String productTitle,
+                             double originalPrice, double commission, double totalPrice,
+                             String country, String state, String city, String postalCode, String address, String phone,
+                             String paymentType, String currency, double amountToPay, String paymentMethodName,
+                             String proofText, String proofImage, String trackingInfo, String status, String rejectionReason, String createdAt) {
+            this.id = id;
+            this.userId = userId;
+            this.userName = userName;
+            this.platform = platform;
+            this.productUrl = productUrl;
+            this.productTitle = productTitle;
+            this.originalPrice = originalPrice;
+            this.commission = commission;
+            this.totalPrice = totalPrice;
+            this.country = country;
+            this.state = state;
+            this.city = city;
+            this.postalCode = postalCode;
+            this.address = address;
+            this.phone = phone;
+            this.paymentType = paymentType;
+            this.currency = currency;
+            this.amountToPay = amountToPay;
+            this.paymentMethodName = paymentMethodName;
+            this.proofText = proofText;
+            this.proofImage = proofImage;
+            this.trackingInfo = trackingInfo;
+            this.status = status;
+            this.rejectionReason = rejectionReason;
+            this.createdAt = createdAt;
+        }
+    }
+
     public static class PurchaseResult {
         public enum Status {
             INSUFFICIENT_BALANCE,
@@ -355,6 +415,35 @@ public class DatabaseManager {
                 );
                 """;
 
+        String createBuyForMeOrders = """
+                CREATE TABLE IF NOT EXISTS buy_for_me_orders (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    platform TEXT NOT NULL,
+                    product_url TEXT NOT NULL,
+                    product_title TEXT DEFAULT '',
+                    original_price REAL NOT NULL,
+                    commission REAL DEFAULT 0.50,
+                    total_price REAL NOT NULL,
+                    country TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    city TEXT NOT NULL,
+                    postal_code TEXT NOT NULL,
+                    address TEXT NOT NULL,
+                    phone TEXT NOT NULL,
+                    payment_type TEXT NOT NULL,
+                    currency TEXT DEFAULT 'USD',
+                    amount_to_pay REAL NOT NULL,
+                    payment_method_name TEXT DEFAULT '',
+                    proof_text TEXT DEFAULT '',
+                    proof_image TEXT DEFAULT '',
+                    tracking_info TEXT DEFAULT '',
+                    status TEXT NOT NULL,
+                    rejection_reason TEXT DEFAULT '',
+                    created_at TEXT NOT NULL
+                );
+                """;
+
         try (Connection conn = connect();
              Statement stmt = conn.createStatement()) {
             stmt.execute(createUsers);
@@ -366,6 +455,7 @@ public class DatabaseManager {
             stmt.execute(createTopupRequests);
             stmt.execute(createNotifications);
             stmt.execute(createWatcherConfig);
+            stmt.execute(createBuyForMeOrders);
             stmt.execute("INSERT OR IGNORE INTO watcher_config (id, interval_minutes) VALUES (1, 15)");
 
             // Safe migrations
@@ -1692,5 +1782,207 @@ public class DatabaseManager {
             System.err.println("Error in getUserOrdersCount: " + e.getMessage());
         }
         return 0;
+    }
+
+    // ==================== BUY FOR ME ORDERS (AliExpress / Temu / SHEIN) ====================
+
+    public synchronized int createBuyForMeOrder(long userId, String platform, String productUrl, String productTitle,
+                                                double originalPrice, double commission, double totalPrice,
+                                                String country, String state, String city, String postalCode, String address, String phone,
+                                                String paymentType, String currency, double amountToPay, String paymentMethodName, String initialStatus) {
+        initDatabase();
+        String sql = """
+                INSERT INTO buy_for_me_orders (
+                    user_id, platform, product_url, product_title, original_price, commission, total_price,
+                    country, state, city, postal_code, address, phone,
+                    payment_type, currency, amount_to_pay, payment_method_name, status, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """;
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            pstmt.setLong(1, userId);
+            pstmt.setString(2, platform);
+            pstmt.setString(3, productUrl);
+            pstmt.setString(4, productTitle != null ? productTitle : "");
+            pstmt.setDouble(5, originalPrice);
+            pstmt.setDouble(6, commission);
+            pstmt.setDouble(7, totalPrice);
+            pstmt.setString(8, country);
+            pstmt.setString(9, state);
+            pstmt.setString(10, city);
+            pstmt.setString(11, postalCode);
+            pstmt.setString(12, address);
+            pstmt.setString(13, phone);
+            pstmt.setString(14, paymentType);
+            pstmt.setString(15, currency);
+            pstmt.setDouble(16, amountToPay);
+            pstmt.setString(17, paymentMethodName);
+            pstmt.setString(18, initialStatus);
+            pstmt.setString(19, now());
+            pstmt.executeUpdate();
+            ResultSet rs = pstmt.getGeneratedKeys();
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) {
+            System.err.println("Error in createBuyForMeOrder: " + e.getMessage());
+        }
+        return -1;
+    }
+
+    public synchronized boolean attachBuyForMeProof(int orderId, String proofText, String proofImage) {
+        String sql = "UPDATE buy_for_me_orders SET proof_text = ?, proof_image = ?, status = 'PENDING' WHERE id = ? AND status = 'WAITING_PROOF'";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, proofText != null ? proofText : "");
+            pstmt.setString(2, proofImage != null ? proofImage : "");
+            pstmt.setInt(3, orderId);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error in attachBuyForMeProof: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public synchronized BuyForMeOrder expireBuyForMeIfWaiting(int orderId) {
+        BuyForMeOrder ord = getBuyForMeOrderById(orderId);
+        if (ord != null && "WAITING_PROOF".equals(ord.status)) {
+            try (Connection conn = connect();
+                 PreparedStatement pstmt = conn.prepareStatement("UPDATE buy_for_me_orders SET status = 'EXPIRED' WHERE id = ?")) {
+                pstmt.setInt(1, orderId);
+                pstmt.executeUpdate();
+                ord.status = "EXPIRED";
+                return ord;
+            } catch (SQLException e) {
+                System.err.println("Error in expireBuyForMeIfWaiting: " + e.getMessage());
+            }
+        }
+        return null;
+    }
+
+    public synchronized BuyForMeOrder completeBuyForMeOrder(int orderId, String trackingInfo) {
+        BuyForMeOrder ord = getBuyForMeOrderById(orderId);
+        if (ord == null) return null;
+        try (Connection conn = connect()) {
+            conn.setAutoCommit(false);
+            try {
+                if ("WALLET".equalsIgnoreCase(ord.paymentType) && "PENDING".equalsIgnoreCase(ord.status)) {
+                    double currentBal = 0.0;
+                    try (PreparedStatement uStmt = conn.prepareStatement("SELECT balance FROM users WHERE chat_id = ?")) {
+                        uStmt.setLong(1, ord.userId);
+                        ResultSet uRs = uStmt.executeQuery();
+                        if (uRs.next()) currentBal = uRs.getDouble("balance");
+                    }
+                    double newBal = Math.max(0.0, currentBal - ord.totalPrice);
+                    try (PreparedStatement dStmt = conn.prepareStatement("UPDATE users SET balance = ? WHERE chat_id = ?")) {
+                        dStmt.setDouble(1, newBal);
+                        dStmt.setLong(2, ord.userId);
+                        dStmt.executeUpdate();
+                    }
+                }
+                try (PreparedStatement upStmt = conn.prepareStatement("UPDATE buy_for_me_orders SET tracking_info = ?, status = 'COMPLETED' WHERE id = ?")) {
+                    upStmt.setString(1, trackingInfo != null ? trackingInfo : "");
+                    upStmt.setInt(2, orderId);
+                    upStmt.executeUpdate();
+                }
+                conn.commit();
+                ord.trackingInfo = trackingInfo;
+                ord.status = "COMPLETED";
+                return ord;
+            } catch (SQLException ex) {
+                conn.rollback();
+                throw ex;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error in completeBuyForMeOrder: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public synchronized BuyForMeOrder rejectBuyForMeOrder(int orderId, String reason) {
+        BuyForMeOrder ord = getBuyForMeOrderById(orderId);
+        if (ord == null) return null;
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement("UPDATE buy_for_me_orders SET status = 'REJECTED', rejection_reason = ? WHERE id = ?")) {
+            pstmt.setString(1, reason != null ? reason : "");
+            pstmt.setInt(2, orderId);
+            if (pstmt.executeUpdate() > 0) {
+                ord.status = "REJECTED";
+                ord.rejectionReason = reason;
+                return ord;
+            }
+        } catch (SQLException e) {
+            System.err.println("Error in rejectBuyForMeOrder: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public synchronized BuyForMeOrder getBuyForMeOrderById(int orderId) {
+        initDatabase();
+        String sql = """
+                SELECT b.*, u.first_name AS user_name
+                FROM buy_for_me_orders b
+                LEFT JOIN users u ON u.chat_id = b.user_id
+                WHERE b.id = ?
+                """;
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, orderId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) return mapBuyForMeRow(rs);
+        } catch (SQLException e) {
+            System.err.println("Error in getBuyForMeOrderById: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public synchronized List<BuyForMeOrder> getAllBuyForMeOrders() {
+        initDatabase();
+        List<BuyForMeOrder> list = new ArrayList<>();
+        String sql = """
+                SELECT b.*, u.first_name AS user_name
+                FROM buy_for_me_orders b
+                LEFT JOIN users u ON u.chat_id = b.user_id
+                WHERE b.status != 'WAITING_PROOF' AND b.status != 'EXPIRED'
+                ORDER BY CASE WHEN b.status = 'PENDING' THEN 0 ELSE 1 END, b.id DESC
+                """;
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) list.add(mapBuyForMeRow(rs));
+        } catch (SQLException e) {
+            System.err.println("Error in getAllBuyForMeOrders: " + e.getMessage());
+        }
+        return list;
+    }
+
+    private BuyForMeOrder mapBuyForMeRow(ResultSet rs) throws SQLException {
+        return new BuyForMeOrder(
+                rs.getInt("id"),
+                rs.getLong("user_id"),
+                rs.getString("user_name") != null ? rs.getString("user_name") : "عميل",
+                rs.getString("platform"),
+                rs.getString("product_url"),
+                rs.getString("product_title"),
+                rs.getDouble("original_price"),
+                rs.getDouble("commission"),
+                rs.getDouble("total_price"),
+                rs.getString("country"),
+                rs.getString("state"),
+                rs.getString("city"),
+                rs.getString("postal_code"),
+                rs.getString("address"),
+                rs.getString("phone"),
+                rs.getString("payment_type"),
+                rs.getString("currency"),
+                rs.getDouble("amount_to_pay"),
+                rs.getString("payment_method_name"),
+                rs.getString("proof_text"),
+                rs.getString("proof_image"),
+                rs.getString("tracking_info"),
+                rs.getString("status"),
+                rs.getString("rejection_reason"),
+                rs.getString("created_at")
+        );
     }
 }

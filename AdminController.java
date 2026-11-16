@@ -31,13 +31,11 @@ public class AdminController {
     private final DatabaseManager db;
     private final MohServiceBot bot;
     private final TelegramEmojiService emojiService;
-    private final SourceWatcherService watcherService;
 
-    public AdminController(DatabaseManager db, MohServiceBot bot, TelegramEmojiService emojiService, SourceWatcherService watcherService) {
+    public AdminController(DatabaseManager db, MohServiceBot bot, TelegramEmojiService emojiService) {
         this.db = db;
         this.bot = bot;
         this.emojiService = emojiService;
-        this.watcherService = watcherService;
         new File("uploads").mkdirs();
     }
 
@@ -79,10 +77,13 @@ public class AdminController {
         List<DatabaseManager.Product> products = db.getAllProducts();
         List<DatabaseManager.PaymentMethod> paymentMethods = db.getAllPaymentMethods();
         List<DatabaseManager.TopupRequest> topups = db.getAllTopupRequests();
+        List<DatabaseManager.BuyForMeOrder> bfmOrders = db.getAllBuyForMeOrders();
 
         long pendingOrdersCount = orders.stream().filter(o -> "PENDING".equals(o.status)).count();
         long pendingTopupsCount = topups.stream().filter(t -> "PENDING_ADMIN".equals(t.status)).count();
-        double totalSales = orders.stream().filter(o -> "COMPLETED".equals(o.status)).mapToDouble(o -> o.price).sum();
+        long pendingBfmCount = bfmOrders.stream().filter(b -> "PENDING".equals(b.status)).count();
+        double totalSales = orders.stream().filter(o -> "COMPLETED".equals(o.status)).mapToDouble(o -> o.price).sum()
+                + bfmOrders.stream().filter(b -> "COMPLETED".equals(b.status)).mapToDouble(b -> b.totalPrice).sum();
 
         Map<String, Object> data = new HashMap<>();
         data.put("users", users);
@@ -90,12 +91,13 @@ public class AdminController {
         data.put("products", products);
         data.put("paymentMethods", paymentMethods);
         data.put("topups", topups);
-        data.put("watcherConfig", db.getWatcherConfig());
+        data.put("buyForMeOrders", bfmOrders);
         data.put("stats", Map.of(
                 "usersCount", users.size(),
                 "ordersCount", orders.size(),
                 "pendingCount", pendingOrdersCount,
                 "pendingTopupsCount", pendingTopupsCount,
+                "pendingBfmCount", pendingBfmCount,
                 "totalSales", totalSales
         ));
         return ResponseEntity.ok(data);
@@ -500,134 +502,50 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("success", deleted));
     }
 
-    // ==================== 6. AUTO PRICE WATCHER (USERBOT) ====================
+    // ==================== 6. BUY FOR ME ORDERS ====================
 
-    @PostMapping("/watcher/send-code")
-    public ResponseEntity<?> watcherSendCode(@RequestBody Map<String, Object> body, HttpSession session) {
+    @PostMapping("/buyforme/complete")
+    public ResponseEntity<?> completeBuyForMeOrder(@RequestBody Map<String, Object> body, HttpSession session) {
         if (!isAuthenticated(session)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        String apiId = String.valueOf(body.getOrDefault("apiId", "")).trim();
-        String apiHash = String.valueOf(body.getOrDefault("apiHash", "")).trim();
-        String phone = String.valueOf(body.getOrDefault("phone", "")).trim();
-        if (!phone.isEmpty() && !phone.startsWith("+")) {
-            phone = "+" + phone;
-        }
-        int interval = 15;
         try {
-            interval = Integer.parseInt(String.valueOf(body.getOrDefault("intervalMinutes", "15")));
-        } catch (NumberFormatException ignored) {
-        }
-        if (apiId.isEmpty() || apiHash.isEmpty() || phone.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "يرجى إدخال API_ID و API_HASH ورقم الهاتف"));
-        }
-        try {
-            long parsedApiId = Long.parseLong(apiId);
-            if (parsedApiId <= 0 || parsedApiId > 2147483647L) {
-                return ResponseEntity.badRequest().body(Map.of("success", false,
-                        "message", "قيمة API_ID غير صحيحة! يجب أن تكون رقم التطبيق (7 أو 8 أرقام) من موقع my.telegram.org وليس رقم هاتفك أو آيدي حسابك."));
+            int orderId = Integer.parseInt(String.valueOf(body.get("orderId")));
+            String trackingInfo = String.valueOf(body.getOrDefault("trackingInfo", "")).trim();
+            if (trackingInfo.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "يرجى إدخال رقم التتبع أو رسالة تأكيد الشراء"));
             }
-        } catch (NumberFormatException e) {
-            return ResponseEntity.badRequest().body(Map.of("success", false,
-                    "message", "قيمة API_ID يجب أن تكون أرقاماً فقط (من موقع my.telegram.org)."));
-        }
-        return ResponseEntity.ok(watcherService.sendLoginCode(apiId, apiHash, phone, interval));
-    }
-
-    @PostMapping("/watcher/verify-code")
-    public ResponseEntity<?> watcherVerifyCode(@RequestBody Map<String, Object> body, HttpSession session) {
-        if (!isAuthenticated(session)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        String code = String.valueOf(body.getOrDefault("code", "")).trim();
-        String password = String.valueOf(body.getOrDefault("password", "")).trim();
-        if (code.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "يرجى إدخال كود التحقق"));
-        }
-        return ResponseEntity.ok(watcherService.verifyLoginCode(code, password));
-    }
-
-    @PostMapping("/watcher/qr-start")
-    public ResponseEntity<?> watcherQrStart(@RequestBody Map<String, Object> body, HttpSession session) {
-        if (!isAuthenticated(session)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        String apiId = String.valueOf(body.getOrDefault("apiId", "")).trim();
-        String apiHash = String.valueOf(body.getOrDefault("apiHash", "")).trim();
-        String password = String.valueOf(body.getOrDefault("password", "")).trim();
-        int interval = 15;
-        try {
-            interval = Integer.parseInt(String.valueOf(body.getOrDefault("intervalMinutes", "15")));
-        } catch (NumberFormatException ignored) {
-        }
-        if (apiId.isEmpty() || apiHash.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "يرجى إدخال API_ID و API_HASH أولاً"));
-        }
-        try {
-            long parsedApiId = Long.parseLong(apiId);
-            if (parsedApiId <= 0 || parsedApiId > 2147483647L) {
-                return ResponseEntity.badRequest().body(Map.of("success", false,
-                        "message", "قيمة API_ID غير صحيحة! يجب أن تكون رقم التطبيق (7 أو 8 أرقام) من موقع my.telegram.org."));
+            DatabaseManager.BuyForMeOrder completed = db.completeBuyForMeOrder(orderId, trackingInfo);
+            if (completed != null) {
+                bot.notifyBuyForMeCompleted(completed);
+                return ResponseEntity.ok(Map.of("success", true));
             }
-        } catch (NumberFormatException e) {
-            return ResponseEntity.badRequest().body(Map.of("success", false,
-                    "message", "قيمة API_ID يجب أن تكون أرقاماً فقط."));
-        }
-        return ResponseEntity.ok(watcherService.startQrLogin(apiId, apiHash, password, interval));
-    }
-
-    @GetMapping("/watcher/qr-status")
-    public ResponseEntity<?> watcherQrStatus(HttpSession session) {
-        if (!isAuthenticated(session)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        return ResponseEntity.ok(watcherService.getQrStatus());
-    }
-
-    @PostMapping("/watcher/save-session")
-    public ResponseEntity<?> watcherSaveSessionString(@RequestBody Map<String, Object> body, HttpSession session) {
-        if (!isAuthenticated(session)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        String apiId = String.valueOf(body.getOrDefault("apiId", "")).trim();
-        String apiHash = String.valueOf(body.getOrDefault("apiHash", "")).trim();
-        String sessionString = String.valueOf(body.getOrDefault("sessionString", "")).trim();
-        int interval = 15;
-        try {
-            interval = Integer.parseInt(String.valueOf(body.getOrDefault("intervalMinutes", "15")));
-        } catch (NumberFormatException ignored) {
-        }
-        db.saveWatcherCredentials(apiId, apiHash, "", interval);
-        db.saveWatcherSession(sessionString, !sessionString.isEmpty());
-        return ResponseEntity.ok(Map.of("success", true));
-    }
-
-    @PostMapping("/offers/watcher")
-    public ResponseEntity<?> updateOfferWatcher(@RequestBody Map<String, Object> body, HttpSession session) {
-        if (!isAuthenticated(session)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        try {
-            int offerId = Integer.parseInt(String.valueOf(body.get("offerId")));
-            String sourceBots = String.valueOf(body.getOrDefault("sourceBots", "")).trim();
-            String sourceProductBtn = String.valueOf(body.getOrDefault("sourceProductBtn", "")).trim();
-            String sourceOfferKeyword = String.valueOf(body.getOrDefault("sourceOfferKeyword", "")).trim();
-            double profitMargin = Double.parseDouble(String.valueOf(body.getOrDefault("profitMargin", "0.30")));
-            boolean autoSync = Boolean.parseBoolean(String.valueOf(body.getOrDefault("autoSync", "true")));
-
-            boolean updated = db.updateOfferWatcherSettings(offerId, sourceBots, sourceProductBtn, sourceOfferKeyword, profitMargin, autoSync);
-            return ResponseEntity.ok(Map.of("success", updated));
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "لم يتم العثور على الطلب"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
     }
 
-    @PostMapping("/watcher/sync-now")
-    public ResponseEntity<?> watcherSyncNow(HttpSession session) {
+    @PostMapping("/buyforme/reject")
+    public ResponseEntity<?> rejectBuyForMeOrder(@RequestBody Map<String, Object> body, HttpSession session) {
         if (!isAuthenticated(session)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        return ResponseEntity.ok(watcherService.runAutoSyncNow());
+        try {
+            int orderId = Integer.parseInt(String.valueOf(body.get("orderId")));
+            String reason = String.valueOf(body.getOrDefault("reason", "")).trim();
+            if (reason.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "يرجى كتابة سبب الرفض"));
+            }
+            DatabaseManager.BuyForMeOrder rejected = db.rejectBuyForMeOrder(orderId, reason);
+            if (rejected != null) {
+                bot.notifyBuyForMeRejected(rejected);
+                return ResponseEntity.ok(Map.of("success", true));
+            }
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "لم يتم العثور على الطلب"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
     }
 
     // ==================== 7. HEALTH & BACKUP ====================

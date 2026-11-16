@@ -522,7 +522,7 @@
         </div>
         <div class="nav-tabs">
             <button class="tab-btn active" onclick="switchTab('products', this)">🛒 المنتجات والعروض</button>
-            <button class="tab-btn" onclick="switchTab('watcher', this)">🤖 المزامنة التلقائية للأسعار</button>
+            <button class="tab-btn" onclick="switchTab('buyforme', this)">🛍 طلبات المواقع <span id="nav-bfm-badge" class="badge badge-warning" style="display:none;">0</span></button>
             <button class="tab-btn" onclick="switchTab('payments', this)">💳 خيارات الدفع</button>
             <button class="tab-btn" onclick="switchTab('topups', this)">💵 طلبات الشحن <span id="nav-topups-badge" class="badge badge-warning" style="display:none;">0</span></button>
             <button class="tab-btn" onclick="switchTab('orders', this)">📦 طلبات الشراء <span id="nav-pending-badge" class="badge badge-warning" style="display:none;">0</span></button>
@@ -607,83 +607,29 @@
             </div>
         </div>
 
-        <!-- ==================== 1.5 AUTO PRICE WATCHER SECTION ==================== -->
-        <div id="panel-watcher" class="section-panel">
+        <!-- ==================== 1.5 BUY FOR ME ORDERS SECTION ==================== -->
+        <div id="panel-buyforme" class="section-panel">
             <div class="card">
                 <div class="card-header">
-                    <h2>🤖 إعدادات حساب المراقب الآلي لبوتات المصادر (Telegram Userbot Watcher)</h2>
-                    <span id="watcher-status-badge" class="badge badge-warning">⚪ غير متصل</span>
-                </div>
-                <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
-                    يقوم هذا النظام بالدخول تلقائياً إلى بوتات المصادر في تلغرام، وقراءة الأسعار الحالية وحالة التوفر، واختيار <b>أرخص سعر متوفر</b> وإضافة ربحك (مثلاً <code>+$0.30</code>) وتحديث السعر في بوتك تلقائياً!
-                    (احصل على <code>API_ID</code> و <code>API_HASH</code> مجاناً من <a href="https://my.telegram.org" target="_blank" style="color:var(--accent);">my.telegram.org</a>).
-                </p>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Telegram API_ID</label>
-                        <input type="text" id="w-api-id" placeholder="مثال: 12345678">
-                    </div>
-                    <div class="form-group">
-                        <label>Telegram API_HASH</label>
-                        <input type="text" id="w-api-hash" placeholder="مثال: a1b2c3d4e5f6...">
-                    </div>
-                    <div class="form-group">
-                        <label>رقم الهاتف مع رمز الدولة (لإرسال كود التفعيل)</label>
-                        <input type="text" id="w-phone" placeholder="مثال: +213600000000">
-                    </div>
-                    <div class="form-group">
-                        <label>فترة الفحص التلقائي (بالدقائق)</label>
-                        <input type="number" id="w-interval" value="15" min="5">
-                    </div>
-                </div>
-                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
-                    <button class="btn btn-success" onclick="startWatcherQrLogin()">📷 تسجيل الدخول عبر مسح QR Code (بدون كود!)</button>
-                    <button class="btn" onclick="sendWatcherLoginCode()">📲 إرسال كود بالهاتف</button>
-                    <input type="text" id="w-code" placeholder="أدخل الكود (إن استخدمت الهاتف)..." style="width:200px;">
-                    <input type="password" id="w-2fa" placeholder="كلمة مرور التحقق بخطوتين (إن وجدت)" style="width:220px;">
-                    <button class="btn btn-outline" onclick="verifyWatcherLoginCode()">✅ تأكيد الكود</button>
-                </div>
-                <div id="qr-login-box" style="display:none; background:var(--bg-input); border:1px solid var(--accent); border-radius:12px; padding:18px; margin-bottom:14px; text-align:center;">
-                    <p style="font-weight:700; margin-bottom:10px;">📱 افتح تطبيق تلغرام في هاتفك ⬅️ الإعدادات ⬅️ الأجهزة (Devices) ⬅️ ربط جهاز (Link Desktop Device) وامسح هذا الرمز:</p>
-                    <img id="qr-login-img" src="" alt="QR Code" style="width:220px; height:220px; border-radius:12px; background:#fff; padding:8px;">
-                    <p id="qr-login-status" style="margin-top:10px; color:#a5b4fc; font-weight:700;"></p>
-                </div>
-                <div style="border-top:1px solid var(--border-color); padding-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-                    <input type="text" id="w-session-str" placeholder="أو الصق Telethon Session String جاهز هنا مباشرة (إذا لم يصلك الكود من السيرفر السحابي)..." style="flex:1; min-width:280px;">
-                    <button class="btn btn-outline" onclick="saveWatcherSessionDirect()">🔑 حفظ Session String والاتصال</button>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h2>⚡ ربط العروض ببوتات المصادر والمزامنة التلقائية (+0.30$)</h2>
-                    <button class="btn btn-success" onclick="triggerWatcherSyncNow()">🔄 فحص ومزامنة جميع الأسعار من المصادر الآن!</button>
+                    <h2>🛍 طلبات الشراء مكان العميل (AliExpress / Temu / SHEIN)</h2>
                 </div>
                 <div class="table-responsive">
                     <table>
                         <thead>
                             <tr>
-                                <th>المنتج والعرض في بوتك</th>
-                                <th>بوتات المصادر (افصل بفاصلة للمقارنة وأخذ الأرخص)</th>
-                                <th>اسم زر المنتج بالمصدر</th>
-                                <th>كلمة الباقة بالمصدر</th>
-                                <th>هامش ربحك ($)</th>
-                                <th>آخر سعر بالمصدر</th>
-                                <th>سعرك النهائي</th>
-                                <th>تفعيل وحفظ</th>
+                                <th>رقم الطلب</th>
+                                <th>العميل</th>
+                                <th>المنصة ورابط المنتج</th>
+                                <th>السعر + العمولة</th>
+                                <th>بيانات التوصيل والاستلام</th>
+                                <th>الدفع والإيصال</th>
+                                <th>الحالة</th>
+                                <th>تأكيد الشراء والتتبع / أو الرفض</th>
                             </tr>
                         </thead>
-                        <tbody id="watcher-offers-tbody"></tbody>
+                        <tbody id="bfm-tbody"></tbody>
                     </table>
                 </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h2>📋 سجل آخر عملية فحص ومزامنة تلقائية</h2>
-                    <small id="watcher-last-sync-time" style="color:var(--text-secondary);"></small>
-                </div>
-                <pre id="watcher-sync-log" style="background:var(--bg-input); border:1px solid var(--border-color); padding:16px; border-radius:10px; font-size:13px; color:#a5b4fc; white-space:pre-wrap; min-height:80px;">لا يوجد سجل فحص حتى الآن.</pre>
             </div>
         </div>
 
@@ -1037,221 +983,133 @@
             topupsBadge.style.display = 'none';
         }
 
+        const bfmBadge = document.getElementById('nav-bfm-badge');
+        if (data.stats.pendingBfmCount > 0) {
+            bfmBadge.style.display = 'inline-flex';
+            bfmBadge.textContent = data.stats.pendingBfmCount;
+        } else {
+            bfmBadge.style.display = 'none';
+        }
+
         renderProducts(data.products);
-        renderWatcherSection(data.watcherConfig, data.products);
+        renderBuyForMeOrders(data.buyForMeOrders);
         renderPaymentMethods(data.paymentMethods);
         renderTopups(data.topups);
         renderOrders(data.orders);
         renderUsers(data.users);
     }
 
-    // ==================== 1.5 RENDER AUTO PRICE WATCHER ====================
-    function renderWatcherSection(cfg, products) {
-        if (cfg) {
-            document.getElementById('w-api-id').value = cfg.apiId || '';
-            document.getElementById('w-api-hash').value = cfg.apiHash || '';
-            document.getElementById('w-phone').value = cfg.phone || '';
-            document.getElementById('w-interval').value = cfg.intervalMinutes || 15;
-            document.getElementById('watcher-last-sync-time').textContent = 'آخر فحص: ' + (cfg.lastSyncAt || 'لم يتم بعد');
-            document.getElementById('watcher-sync-log').textContent = cfg.lastSyncLog || 'لا يوجد سجل فحص حتى الآن.';
+    // ==================== 1.5 RENDER BUY FOR ME ORDERS ====================
+    function renderBuyForMeOrders(list) {
+        const tbody = document.getElementById('bfm-tbody');
+        if (!list || list.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-secondary); padding:24px;">لا توجد طلبات شراء من المواقع حتى الآن</td></tr>`;
+            return;
+        }
 
-            const badge = document.getElementById('watcher-status-badge');
-            if (cfg.isConnected) {
-                badge.className = 'badge badge-success';
-                badge.textContent = '🟢 حساب المراقب متصل وجاهز للمزامنة';
-            } else {
-                badge.className = 'badge badge-warning';
-                badge.textContent = '⚪ غير متصل (أدخل البيانات وأرسل الكود للربط)';
+        tbody.innerHTML = list.map(b => {
+            const isPending = b.status === 'PENDING';
+            const badge = b.status === 'PENDING'
+                ? `<span class="badge badge-warning">⏳ PENDING (معلق)</span>`
+                : (b.status === 'COMPLETED'
+                    ? `<span class="badge badge-success">✅ تم الشراء</span>`
+                    : `<span class="badge badge-danger">❌ مرفوض</span>`);
+
+            const shippingHtml = `
+                <div style="font-size:12px; line-height:1.6; min-width:210px;">
+                    🌍 <b>الدولة:</b> ${escapeHtml(b.country)}<br>
+                    📍 <b>الولاية:</b> ${escapeHtml(b.state)} | 🏙 ${escapeHtml(b.city)}<br>
+                    📮 <b>الرمز البريدي:</b> <code>${escapeHtml(b.postalCode)}</code><br>
+                    🏠 <b>العنوان:</b> ${escapeHtml(b.address)}<br>
+                    📞 <b>الهاتف:</b> <code>${escapeHtml(b.phone)}</code>
+                </div>
+            `;
+
+            let payHtml = b.paymentType === 'WALLET'
+                ? `<span class="badge badge-info">💰 من المحفظة</span><br><strong style="color:var(--success);">$${Number(b.totalPrice).toFixed(2)}</strong>`
+                : `<span class="badge badge-warning">💳 ${escapeHtml(b.paymentMethodName)}</span><br><strong>${Number(b.amountToPay).toFixed(2)} ${escapeHtml(b.currency)}</strong>`;
+
+            if (b.proofImage) {
+                payHtml += `<br><a href="/${b.proofImage}" target="_blank"><img src="/${b.proofImage}" class="proof-thumb" style="margin-top:6px;"></a>`;
             }
-        }
+            if (b.proofText) {
+                payHtml += `<div style="font-size:11px; margin-top:4px;"><code>${escapeHtml(b.proofText)}</code></div>`;
+            }
 
-        const tbody = document.getElementById('watcher-offers-tbody');
-        const allOffers = [];
-        (products || []).forEach(p => {
-            (p.offers || []).forEach(o => {
-                allOffers.push({ ...o, prodName: p.name });
-            });
-        });
+            const actionHtml = isPending
+                ? `<div style="display:flex; flex-direction:column; gap:8px; min-width:270px;">
+                       <div style="display:flex; gap:6px;">
+                           <input type="text" id="bfm-track-${b.id}" placeholder="رقم التتبع أو تأكيد الشراء..." style="padding:7px 10px; font-size:12px;">
+                           <button class="btn btn-success btn-sm" onclick="completeBuyForMe(${b.id})">✅ تأكيد الشراء</button>
+                       </div>
+                       <div style="display:flex; gap:6px;">
+                           <input type="text" id="bfm-reject-${b.id}" placeholder="سبب الرفض (إن وجد)..." style="padding:7px 10px; font-size:12px;">
+                           <button class="btn btn-danger btn-sm" onclick="rejectBuyForMe(${b.id})">❌ رفض</button>
+                       </div>
+                   </div>`
+                : (b.status === 'REJECTED'
+                    ? `<small style="color:#f87171;">مرفوض: ${escapeHtml(b.rejectionReason)}</small>`
+                    : `<code>${escapeHtml(b.trackingInfo || 'تم التنفيذ')}</code>`);
 
-        if (allOffers.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-secondary); padding:24px;">أضف منتجات وعروض أولاً لتتمكن من ربطها ببوتات المصادر</td></tr>`;
-            return;
-        }
-
-        tbody.innerHTML = allOffers.map(o => `
-            <tr>
-                <td>
-                    <strong>${escapeHtml(o.prodName)}</strong><br>
-                    <small style="color:var(--text-secondary);">${escapeHtml(o.name)} (#${o.id})</small>
-                </td>
-                <td>
-                    <input type="text" id="wo-bots-${o.id}" value="${escapeHtml(o.sourceBots || '')}" placeholder="@bot1, @bot2" style="min-width:150px; padding:7px 10px; font-size:12px;">
-                </td>
-                <td>
-                    <input type="text" id="wo-pbtn-${o.id}" value="${escapeHtml(o.sourceProductBtn || o.prodName)}" placeholder="مثال: Netflix" style="min-width:120px; padding:7px 10px; font-size:12px;">
-                </td>
-                <td>
-                    <input type="text" id="wo-kw-${o.id}" value="${escapeHtml(o.sourceOfferKeyword || '')}" placeholder="مثال: 1 Month" style="min-width:140px; padding:7px 10px; font-size:12px;">
-                </td>
-                <td>
-                    <input type="number" step="0.01" id="wo-margin-${o.id}" value="${o.profitMargin !== undefined ? o.profitMargin : 0.30}" style="width:85px; padding:7px 10px; font-size:12px;">
-                </td>
-                <td><code>$${Number(o.lastSourcePrice || 0).toFixed(2)}</code></td>
-                <td><strong style="color:var(--success);">$${Number(o.price).toFixed(2)}</strong><br><small style="color:var(--text-secondary);">${Math.round(Number(o.price) * 260)} DZD</small></td>
-                <td>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <label class="switch" title="تفعيل المزامنة التلقائية لهذا العرض">
-                            <input type="checkbox" id="wo-sync-${o.id}" ${o.autoSync ? 'checked' : ''}>
-                            <span class="slider"></span>
-                        </label>
-                        <button class="btn btn-success btn-sm" onclick="saveOfferWatcher(${o.id})">💾 حفظ</button>
-                    </div>
-                </td>
-            </tr>
-        `).join('');
+            return `
+                <tr>
+                    <td><code>#${b.id}</code><br><small style="color:var(--text-secondary); font-size:11px;">${b.createdAt}</small></td>
+                    <td><strong>${escapeHtml(b.userName)}</strong><br><code>${b.userId}</code></td>
+                    <td style="max-width:220px;">
+                        <span class="badge badge-info">🌐 ${escapeHtml(b.platform)}</span><br>
+                        <small style="color:var(--text-secondary);">${escapeHtml(b.productTitle || '')}</small><br>
+                        <a href="${escapeHtml(b.productUrl)}" target="_blank" style="color:var(--accent); font-size:12px; font-weight:700;">🔗 فتح رابط المنتج</a>
+                    </td>
+                    <td style="font-size:12px;">
+                        السعر: <code>$${Number(b.originalPrice).toFixed(2)}</code><br>
+                        العمولة: <code>+$${Number(b.commission).toFixed(2)}</code><br>
+                        <strong style="color:var(--success); font-size:14px;">الإجمالي: $${Number(b.totalPrice).toFixed(2)}</strong>
+                    </td>
+                    <td>${shippingHtml}</td>
+                    <td>${payHtml}</td>
+                    <td>${badge}</td>
+                    <td>${actionHtml}</td>
+                </tr>
+            `;
+        }).join('');
     }
 
-    async function sendWatcherLoginCode() {
-        const apiId = document.getElementById('w-api-id').value.trim();
-        const apiHash = document.getElementById('w-api-hash').value.trim();
-        const phone = document.getElementById('w-phone').value.trim();
-        const intervalMinutes = document.getElementById('w-interval').value;
-        if (!apiId || !apiHash || !phone) {
-            showToast('⚠️ يرجى إدخال API_ID و API_HASH ورقم الهاتف أولاً');
+    async function completeBuyForMe(orderId) {
+        const input = document.getElementById('bfm-track-' + orderId);
+        const trackingInfo = input ? input.value.trim() : '';
+        if (!trackingInfo) {
+            showToast('⚠️ يرجى كتابة رقم التتبع أو رسالة تأكيد الشراء للعميل');
             return;
         }
-        showToast('⏳ جارٍ الاتصال بتلغرام وإرسال كود التحقق...');
-        const res = await fetch('/api/watcher/send-code', {
+        const res = await fetch('/api/buyforme/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apiId, apiHash, phone, intervalMinutes })
-        });
-        const data = await res.json();
-        showToast((data.success ? '✅ ' : '❌ ') + (data.message || ''));
-    }
-
-    let qrPollTimer = null;
-
-    async function startWatcherQrLogin() {
-        const apiId = document.getElementById('w-api-id').value.trim();
-        const apiHash = document.getElementById('w-api-hash').value.trim();
-        const password = document.getElementById('w-2fa').value.trim();
-        const intervalMinutes = document.getElementById('w-interval').value;
-        if (!apiId || !apiHash) {
-            showToast('⚠️ يرجى إدخال API_ID و API_HASH أولاً');
-            return;
-        }
-        showToast('⏳ جارٍ توليد رمز QR لتسجيل الدخول...');
-        const res = await fetch('/api/watcher/qr-start', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apiId, apiHash, password, intervalMinutes })
-        });
-        const data = await res.json();
-        if (data.success && data.qrUrl) {
-            const box = document.getElementById('qr-login-box');
-            const img = document.getElementById('qr-login-img');
-            const status = document.getElementById('qr-login-status');
-            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=' + encodeURIComponent(data.qrUrl);
-            status.textContent = '⏳ بانتظار مسح الرمز بهاتفك...';
-            box.style.display = 'block';
-
-            if (qrPollTimer) clearInterval(qrPollTimer);
-            qrPollTimer = setInterval(async () => {
-                const stRes = await fetch('/api/watcher/qr-status');
-                const st = await stRes.json();
-                if (st.message) status.textContent = st.message;
-                if (st.connected) {
-                    clearInterval(qrPollTimer);
-                    showToast('✅ تم ربط حساب التلغرام المراقب بنجاح عبر QR!');
-                    setTimeout(() => {
-                        box.style.display = 'none';
-                        loadDashboard();
-                    }, 1200);
-                } else if (!st.waiting) {
-                    clearInterval(qrPollTimer);
-                }
-            }, 2500);
-        } else {
-            showToast('❌ ' + (data.message || 'تعذر توليد QR Code'));
-        }
-    }
-
-    async function saveWatcherSessionDirect() {
-        const apiId = document.getElementById('w-api-id').value.trim();
-        const apiHash = document.getElementById('w-api-hash').value.trim();
-        const sessionString = document.getElementById('w-session-str').value.trim();
-        const intervalMinutes = document.getElementById('w-interval').value;
-        if (!apiId || !apiHash || !sessionString) {
-            showToast('⚠️ يرجى إدخال API_ID و API_HASH و Session String');
-            return;
-        }
-        const res = await fetch('/api/watcher/save-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apiId, apiHash, sessionString, intervalMinutes })
+            body: JSON.stringify({ orderId, trackingInfo })
         });
         const data = await res.json();
         if (data.success) {
-            showToast('✅ تم ربط حساب المراقب عبر Session String بنجاح!');
+            showToast('✅ تم تأكيد الشراء وإرسال رقم التتبع للعميل (وخصم الرصيد إن كان من المحفظة)!');
             loadDashboard();
         } else {
-            showToast('❌ فشل الحفظ');
+            showToast('❌ ' + (data.message || 'فشل التأكيد'));
         }
     }
 
-    async function verifyWatcherLoginCode() {
-        const code = document.getElementById('w-code').value.trim();
-        const password = document.getElementById('w-2fa').value.trim();
-        if (!code) {
-            showToast('⚠️ يرجى إدخال الكود الذي وصلك في تلغرام');
+    async function rejectBuyForMe(orderId) {
+        const input = document.getElementById('bfm-reject-' + orderId);
+        const reason = input ? input.value.trim() : '';
+        if (!reason) {
+            showToast('⚠️ يرجى كتابة سبب الرفض أولاً');
             return;
         }
-        showToast('⏳ جارٍ التحقق من الكود وربط الحساب...');
-        const res = await fetch('/api/watcher/verify-code', {
+        const res = await fetch('/api/buyforme/reject', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code, password })
-        });
-        const data = await res.json();
-        showToast((data.success ? '✅ ' : '❌ ') + (data.message || ''));
-        if (data.success) {
-            loadDashboard();
-        }
-    }
-
-    async function saveOfferWatcher(offerId) {
-        const payload = {
-            offerId,
-            sourceBots: document.getElementById('wo-bots-' + offerId).value,
-            sourceProductBtn: document.getElementById('wo-pbtn-' + offerId).value,
-            sourceOfferKeyword: document.getElementById('wo-kw-' + offerId).value,
-            profitMargin: document.getElementById('wo-margin-' + offerId).value,
-            autoSync: document.getElementById('wo-sync-' + offerId).checked
-        };
-        const res = await fetch('/api/offers/watcher', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({ orderId, reason })
         });
         const data = await res.json();
         if (data.success) {
-            showToast('✅ تم حفظ إعدادات مراقبة المصدر لهذا العرض!');
-            loadDashboard();
-        } else {
-            showToast('❌ ' + (data.message || 'فشل الحفظ'));
-        }
-    }
-
-    async function triggerWatcherSyncNow() {
-        showToast('⏳ جارٍ الدخول لبوتات المصادر وفحص الأسعار والتوفر... قد يستغرق 15-30 ثانية');
-        const res = await fetch('/api/watcher/sync-now', { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
-            showToast(`✅ تمت المزامنة بنجاح وتحديث ${data.updatedCount} عرض!`);
-            loadDashboard();
-        } else {
-            showToast('❌ ' + (data.message || 'فشل الفحص'));
+            showToast('❌ تم رفض الطلب وإرسال السبب للعميل في التلغرام');
             loadDashboard();
         }
     }
