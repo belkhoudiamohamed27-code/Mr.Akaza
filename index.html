@@ -636,11 +636,15 @@
                         <input type="number" id="w-interval" value="15" min="5">
                     </div>
                 </div>
-                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
                     <button class="btn" onclick="sendWatcherLoginCode()">📲 1. إرسال كود الدخول للتلغرام</button>
                     <input type="text" id="w-code" placeholder="أدخل الكود الذي وصلك في تلغرام..." style="width:220px;">
                     <input type="password" id="w-2fa" placeholder="كلمة مرور التحقق بخطوتين (إن وجدت)" style="width:220px;">
                     <button class="btn btn-success" onclick="verifyWatcherLoginCode()">✅ 2. تأكيد وربط الحساب</button>
+                </div>
+                <div style="border-top:1px solid var(--border-color); padding-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                    <input type="text" id="w-session-str" placeholder="أو الصق Telethon Session String جاهز هنا مباشرة (إذا لم يصلك الكود من السيرفر السحابي)..." style="flex:1; min-width:280px;">
+                    <button class="btn btn-outline" onclick="saveWatcherSessionDirect()">🔑 حفظ Session String والاتصال</button>
                 </div>
             </div>
 
@@ -1118,6 +1122,29 @@
         });
         const data = await res.json();
         showToast((data.success ? '✅ ' : '❌ ') + (data.message || ''));
+    }
+
+    async function saveWatcherSessionDirect() {
+        const apiId = document.getElementById('w-api-id').value.trim();
+        const apiHash = document.getElementById('w-api-hash').value.trim();
+        const sessionString = document.getElementById('w-session-str').value.trim();
+        const intervalMinutes = document.getElementById('w-interval').value;
+        if (!apiId || !apiHash || !sessionString) {
+            showToast('⚠️ يرجى إدخال API_ID و API_HASH و Session String');
+            return;
+        }
+        const res = await fetch('/api/watcher/save-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiId, apiHash, sessionString, intervalMinutes })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('✅ تم ربط حساب المراقب عبر Session String بنجاح!');
+            loadDashboard();
+        } else {
+            showToast('❌ فشل الحفظ');
+        }
     }
 
     async function verifyWatcherLoginCode() {

@@ -42,16 +42,20 @@ async def send_login_code(data):
     api_id = int(data['apiId'])
     api_hash = data['apiHash'].strip()
     phone = data['phone'].strip()
+    if not phone.startswith('+'):
+        phone = '+' + phone
 
     client = TelegramClient(StringSession(), api_id, api_hash)
     await client.connect()
     sent = await client.send_code_request(phone)
     temp_session = client.session.save()
+    code_type = type(sent.type).__name__
     await client.disconnect()
     print(json.dumps({
         "success": True,
         "phoneCodeHash": sent.phone_code_hash,
-        "tempSession": temp_session
+        "tempSession": temp_session,
+        "codeType": code_type
     }))
 
 async def verify_login_code(data):

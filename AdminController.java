@@ -510,6 +510,9 @@ public class AdminController {
         String apiId = String.valueOf(body.getOrDefault("apiId", "")).trim();
         String apiHash = String.valueOf(body.getOrDefault("apiHash", "")).trim();
         String phone = String.valueOf(body.getOrDefault("phone", "")).trim();
+        if (!phone.isEmpty() && !phone.startsWith("+")) {
+            phone = "+" + phone;
+        }
         int interval = 15;
         try {
             interval = Integer.parseInt(String.valueOf(body.getOrDefault("intervalMinutes", "15")));
@@ -517,6 +520,16 @@ public class AdminController {
         }
         if (apiId.isEmpty() || apiHash.isEmpty() || phone.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "يرجى إدخال API_ID و API_HASH ورقم الهاتف"));
+        }
+        try {
+            long parsedApiId = Long.parseLong(apiId);
+            if (parsedApiId <= 0 || parsedApiId > 2147483647L) {
+                return ResponseEntity.badRequest().body(Map.of("success", false,
+                        "message", "قيمة API_ID غير صحيحة! يجب أن تكون رقم التطبيق (7 أو 8 أرقام) من موقع my.telegram.org وليس رقم هاتفك أو آيدي حسابك."));
+            }
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false,
+                    "message", "قيمة API_ID يجب أن تكون أرقاماً فقط (من موقع my.telegram.org)."));
         }
         return ResponseEntity.ok(watcherService.sendLoginCode(apiId, apiHash, phone, interval));
     }

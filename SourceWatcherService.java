@@ -59,7 +59,8 @@ public class SourceWatcherService {
         if (resp != null && resp.path("success").asBoolean()) {
             this.pendingPhoneCodeHash = resp.path("phoneCodeHash").asText("");
             this.pendingTempSession = resp.path("tempSession").asText("");
-            return Map.of("success", true, "message", "تم إرسال كود التحقق إلى حسابك في تلغرام!");
+            String codeType = resp.path("codeType").asText("App");
+            return Map.of("success", true, "message", "تم إرسال كود التحقق (" + codeType + ")! تحقق من تطبيق تلغرام أو رسائل SMS.");
         }
         String err = resp != null ? resp.path("message").asText("تعذر إرسال الكود") : "فشل تشغيل محرك Telethon";
         return Map.of("success", false, "message", err);
